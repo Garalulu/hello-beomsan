@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Song Tournaments{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-trophy"></i> Song Tournaments</h1>
+            {% if user.is_staff %}
+            <a href="{% url 'tournament:create_tournament' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Tournament
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not user.is_authenticated %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h4><i class="fab fa-osu"></i> Welcome to Song Tournament!</h4>
+            <p>Join exciting music competitions where songs battle it out in World Cup-style elimination brackets. 
+               Listen to songs, vote for your favorites, and see which track emerges victorious!</p>
+            <a href="{% url 'accounts:login' %}" class="btn btn-primary">
+                <i class="fab fa-osu"></i> Login with osu! to Vote
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    {% for tournament in page_obj %}
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ tournament.name }}</h5>
+                <span class="badge 
+                    {% if tournament.status == 'SETUP' %}bg-secondary{% endif %}
+                    {% if tournament.status == 'ONGOING' %}bg-success{% endif %}
+                    {% if tournament.status == 'COMPLETED' %}bg-primary{% endif %}
+                ">
+                    {{ tournament.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                {% if tournament.description %}
+                <p class="card-text">{{ tournament.description }}</p>
+                {% endif %}
+                
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="fw-bold">{{ tournament.songs.count }}</div>
+                        <small class="text-muted">Songs</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold">{{ tournament.current_round }}/{{ tournament.total_rounds }}</div>
+                        <small class="text-muted">Round</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold">{{ tournament.matches.filter.status='COMPLETED'.count }}</div>
+                        <small class="text-muted">Completed</small>
+                    </div>
+                </div>
+                
+                {% if tournament.status == 'ONGOING' %}
+                <div class="mb-3">
+                    {% with voting_matches=tournament.matches.filter.round_number=tournament.current_round.status='VOTING' %}
+                    {% if voting_matches %}
+                    <small class="text-primary">
+                        <i class="fas fa-vote-yea"></i> {{ voting_matches.count }} match{{ voting_matches.count|pluralize:"es" }} available for voting
+                    </small>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                {% endif %}
+                
+                {% if tournament.status == 'COMPLETED' %}
+                <div class="alert alert-success py-2">
+                    <i class="fas fa-trophy"></i> <strong>Tournament Complete!</strong>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        Created {{ tournament.created_at|date:"M d, Y" }} by {{ tournament.created_by.profile.osu_username|default:tournament.created_by.username }}
+                    </small>
+                    <a href="{% url 'tournament:tournament_detail' tournament.id %}" class="btn btn-outline-primary btn-sm">
+                        View Tournament
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+            <h3>No tournaments yet</h3>
+            <p class="text-muted">Check back later for exciting song competitions!</p>
+            {% if user.is_staff %}
+            <a href="{% url 'tournament:create_tournament' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create the First Tournament
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Tournament pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

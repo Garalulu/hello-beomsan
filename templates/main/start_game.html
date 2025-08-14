@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Start Game{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        {% if existing_session %}
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-question-circle"></i> Continue Previous Session?</h4>
+            </div>
+            <div class="card-body text-center">
+                <p>You have an unfinished voting session. Would you like to continue where you left off or start fresh?</p>
+                
+                <div class="mb-3">
+                    <strong>Progress:</strong> Round {{ existing_session.current_round }}, Match {{ existing_session.current_match }}
+                    <br>
+                    <small class="text-muted">Started {{ existing_session.created_at|timesince }} ago</small>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" name="action" value="continue" class="btn btn-success btn-lg">
+                            <i class="fas fa-play"></i> Continue Previous Session
+                        </button>
+                        <button type="submit" name="action" value="new" class="btn btn-primary">
+                            <i class="fas fa-refresh"></i> Start New Session
+                        </button>
+                    </div>
+                </form>
+                
+                <a href="{% url 'home' %}" class="btn btn-link mt-2">
+                    <i class="fas fa-arrow-left"></i> Back to Home
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="fas fa-play"></i> Start New Game</h4>
+            </div>
+            <div class="card-body text-center">
+                <p>Ready to start a new song tournament? We'll randomly select 128 songs for your bracket.</p>
+                
+                <div class="mb-4">
+                    <i class="fas fa-music fa-3x text-primary mb-3"></i>
+                    <br>
+                    <strong>Tournament Format:</strong> 128 songs → 64 → 32 → 16 → 8 → 4 → 2 → Winner!
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" name="action" value="new" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play"></i> Start Tournament
+                        </button>
+                    </div>
+                </form>
+                
+                <a href="{% url 'home' %}" class="btn btn-link mt-2">
+                    <i class="fas fa-arrow-left"></i> Back to Home
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

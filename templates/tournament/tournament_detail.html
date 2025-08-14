@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>{{ tournament.name }}</h1>
+                {% if tournament.description %}
+                <p class="text-muted">{{ tournament.description }}</p>
+                {% endif %}
+                <div class="badge-container">
+                    <span class="badge bg-primary me-2">Status: {{ tournament.get_status_display }}</span>
+                    <span class="badge bg-info me-2">Round: {{ tournament.current_round }}/{{ tournament.total_rounds }}</span>
+                    <span class="badge bg-secondary">Songs: {{ tournament.songs.count }}</span>
+                </div>
+            </div>
+            {% if user.is_staff and tournament.status == 'ONGOING' %}
+            <div>
+                <button class="btn btn-warning" onclick="advanceTournament('{{ tournament.id }}')">
+                    <i class="fas fa-forward"></i> Advance Round
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if tournament.status == 'ONGOING' and current_matches %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h3><i class="fas fa-vote-yea"></i> Current Voting Matches</h3>
+        <div class="row">
+            {% for match in current_matches %}
+            <div class="col-lg-6 mb-3">
+                <div class="match-item">
+                    <div class="row align-items-center">
+                        <div class="col-4 text-center">
+                            <strong>{{ match.song1.title }}</strong>
+                            {% if match.song1.artist %}<br><small class="text-muted">{{ match.song1.artist }}</small>{% endif %}
+                            <div class="vote-count text-primary mt-1">{{ match.song1_votes }} vote{{ match.song1_votes|pluralize }}</div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <div class="vs-text text-primary">VS</div>
+                            <a href="{% url 'tournament:match_vote' match.id %}" class="btn btn-primary btn-sm mt-2">
+                                <i class="fas fa-vote-yea"></i> Vote
+                            </a>
+                        </div>
+                        <div class="col-4 text-center">
+                            <strong>{{ match.song2.title }}</strong>
+                            {% if match.song2.artist %}<br><small class="text-muted">{{ match.song2.artist }}</small>{% endif %}
+                            <div class="vote-count text-primary mt-1">{{ match.song2_votes }} vote{{ match.song2_votes|pluralize }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tournament Bracket Visualization -->
+<div class="row">
+    <div class="col-12">
+        <h3><i class="fas fa-sitemap"></i> Tournament Bracket</h3>
+        
+        {% for round_num, matches in bracket_data.rounds.items %}
+        <div class="bracket-round">
+            <h4>Round {{ round_num }}
+                {% if round_num == 1 %}- Round of 128{% endif %}
+                {% if round_num == 2 %}- Round of 64{% endif %}
+                {% if round_num == 3 %}- Round of 32{% endif %}
+                {% if round_num == 4 %}- Round of 16{% endif %}
+                {% if round_num == 5 %}- Quarter-finals{% endif %}
+                {% if round_num == 6 %}- Semi-finals{% endif %}
+                {% if round_num == 7 %}- Final{% endif %}
+            </h4>
+            
+            <div class="row">
+                {% for match in matches %}
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="match-item">
+                        <div class="small text-muted mb-1">Match {{ match.match_number }}</div>
+                        
+                        <div class="row align-items-center">
+                            <div class="col-5">
+                                <div class="{% if match.winner and match.winner.id == match.song1.id %}fw-bold text-success{% endif %}">
+                                    {{ match.song1.title }}
+                                    {% if match.song1.artist %}<br><small class="text-muted">{{ match.song1.artist }}</small>{% endif %}
+                                </div>
+                                {% if match.status == 'COMPLETED' %}
+                                <small class="text-primary">{{ match.song1.votes }} votes</small>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-2 text-center">
+                                {% if match.status == 'COMPLETED' %}
+                                    {% if match.winner.id == match.song1.id %}
+                                    <i class="fas fa-arrow-left text-success"></i>
+                                    {% else %}
+                                    <i class="fas fa-arrow-right text-success"></i>
+                                    {% endif %}
+                                {% elif match.status == 'VOTING' %}
+                                <small class="text-primary">VOTING</small>
+                                {% else %}
+                                <small class="text-muted">PENDING</small>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-5">
+                                <div class="{% if match.winner and match.winner.id == match.song2.id %}fw-bold text-success{% endif %}">
+                                    {{ match.song2.title }}
+                                    {% if match.song2.artist %}<br><small class="text-muted">{{ match.song2.artist }}</small>{% endif %}
+                                </div>
+                                {% if match.status == 'COMPLETED' %}
+                                <small class="text-primary">{{ match.song2.votes }} votes</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if match.status == 'VOTING' and user.is_authenticated %}
+                        <div class="text-center mt-2">
+                            <a href="{% url 'tournament:match_vote' match.id %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-vote-yea"></i> Vote
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if tournament.status == 'COMPLETED' %}
+<div class="row mt-5">
+    <div class="col-12 text-center">
+        <div class="alert alert-success">
+            <h2><i class="fas fa-trophy"></i> Tournament Winner!</h2>
+            {% with winner=bracket_data.rounds|last|first.winner %}
+            {% if winner %}
+            <h3>{{ winner.title }}{% if winner.artist %} - {{ winner.artist }}{% endif %}</h3>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function advanceTournament(tournamentId) {
+    if (!confirm('Are you sure you want to advance this tournament to the next round? This will finalize all current matches.')) {
+        return;
+    }
+    
+    fetch(`/tournament/${tournamentId}/advance/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error advancing tournament. Please try again.');
+    });
+}
+</script>
+{% endblock %}

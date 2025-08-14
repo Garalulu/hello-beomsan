@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Song{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-upload"></i> Add New Song</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Song Title *</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="artist" class="form-label">Artist</label>
+                        <input type="text" class="form-control" id="artist" name="artist">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="audio_url" class="form-label">Audio URL (Google Drive) *</label>
+                        <input type="url" class="form-control" id="audio_url" name="audio_url" required>
+                        <div class="form-text">
+                            Google Drive direct download link. Make sure the file is publicly accessible.
+                            <br>Example: <code>https://drive.google.com/uc?export=download&id=FILE_ID</code>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="background_image_url" class="form-label">Background Image URL (Google Drive)</label>
+                        <input type="url" class="form-control" id="background_image_url" name="background_image_url">
+                        <div class="form-text">
+                            Optional background image. Use Google Drive direct link.
+                            <br>Example: <code>https://drive.google.com/uc?export=view&id=FILE_ID</code>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'song_stats' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Add Song
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="fas fa-question-circle"></i> How to get Google Drive direct links</h5>
+            </div>
+            <div class="card-body">
+                <h6>For Audio Files:</h6>
+                <ol>
+                    <li>Upload your audio file to Google Drive</li>
+                    <li>Right-click the file and select "Get link"</li>
+                    <li>Change sharing to "Anyone with the link can view"</li>
+                    <li>Copy the file ID from the URL: <code>https://drive.google.com/file/d/<strong>FILE_ID</strong>/view?usp=sharing</code></li>
+                    <li>Use format: <code>https://drive.google.com/uc?export=download&id=FILE_ID</code></li>
+                </ol>
+                
+                <h6>For Image Files:</h6>
+                <ol>
+                    <li>Upload your image to Google Drive</li>
+                    <li>Get the file ID same as above</li>
+                    <li>Use format: <code>https://drive.google.com/uc?export=view&id=FILE_ID</code></li>
+                </ol>
+                
+                <div class="alert alert-warning">
+                    <strong>Important:</strong> Make sure your Google Drive files are set to "Anyone with the link can view" for them to work properly.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

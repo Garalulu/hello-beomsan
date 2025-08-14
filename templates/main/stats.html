@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Song Statistics{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-chart-bar"></i> Song Statistics</h1>
+            <a href="{% url 'home' %}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Sorting Options -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5>Sort by:</h5>
+                <div class="btn-group" role="group">
+                    <a href="?sort=win_rate" class="btn {% if sort_by == 'win_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-percentage"></i> Win Rate
+                    </a>
+                    <a href="?sort=pick_rate" class="btn {% if sort_by == 'pick_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-chart-line"></i> Pick Rate
+                    </a>
+                    <a href="?sort=wins" class="btn {% if sort_by == 'wins' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-trophy"></i> Total Wins
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Song Statistics Table -->
+<div class="row">
+    <div class="col-12">
+        {% for song in page_obj %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h5 class="card-title mb-1">{{ song.title }}</h5>
+                        {% if song.artist %}
+                        <p class="text-muted mb-0">by {{ song.artist }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <div class="fw-bold text-success">{{ song.win_rate|floatformat:1 }}%</div>
+                                <small class="text-muted">Win Rate</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-info">{{ song.pick_rate|floatformat:1 }}%</div>
+                                <small class="text-muted">Pick Rate</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-warning">{{ song.total_wins }}</div>
+                                <small class="text-muted">Wins</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-secondary">{{ song.total_picks }}</div>
+                                <small class="text-muted">Matches</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Win Rate Progress Bar -->
+                        <div class="mt-2">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ song.win_rate }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if song.audio_url %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <audio controls class="audio-player" preload="metadata">
+                            <source src="{{ song.audio_url }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-5">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <h3>No Statistics Yet</h3>
+            <p class="text-muted">Start playing tournaments to see song statistics!</p>
+            <a href="{% url 'start_game' %}" class="btn btn-primary">
+                <i class="fas fa-play"></i> Start Your First Game
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Song statistics pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_by }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}&sort={{ sort_by }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&sort={{ sort_by }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Statistics Legend -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6>Understanding the Statistics:</h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Win Rate:</strong> Percentage of matches won when selected
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Pick Rate:</strong> How often this song appears in tournaments
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Wins:</strong> Total number of matches won
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Matches:</strong> Total number of matches played
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Pause other audio when one starts playing
+document.addEventListener('DOMContentLoaded', function() {
+    const audioElements = document.querySelectorAll('audio');
+    
+    audioElements.forEach(audio => {
+        audio.addEventListener('play', function() {
+            audioElements.forEach(otherAudio => {
+                if (otherAudio !== audio) {
+                    otherAudio.pause();
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

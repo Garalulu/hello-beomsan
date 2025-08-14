@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Songs{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-cog"></i> Manage Songs</h1>
+            <a href="{% url 'upload_song' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Add New Song
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Songs Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>All Songs ({{ page_obj.paginator.count }} total)</h5>
+            </div>
+            <div class="card-body">
+                {% for song in page_obj %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h6 class="card-title mb-1">{{ song.title }}</h6>
+                                {% if song.artist %}
+                                <p class="text-muted mb-0">by {{ song.artist }}</p>
+                                {% endif %}
+                                <small class="text-muted">Added {{ song.created_at|date:"M d, Y" }}</small>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="fw-bold text-success">{{ song.total_wins }}</div>
+                                        <small class="text-muted">Wins</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold text-danger">{{ song.total_losses }}</div>
+                                        <small class="text-muted">Losses</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="fw-bold text-primary">{{ song.total_picks }}</div>
+                                        <small class="text-muted">Matches</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-2 text-end">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAudio('{{ song.audio_url }}')">
+                                        <i class="fas fa-play"></i> Test
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSong('{{ song.id }}', '{{ song.title }}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- File URLs for reference -->
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <strong>Audio:</strong> <a href="{{ song.audio_url }}" target="_blank" class="text-decoration-none">{{ song.audio_url|truncatechars:60 }}</a>
+                                {% if song.background_image_url %}
+                                <br><strong>Image:</strong> <a href="{{ song.background_image_url }}" target="_blank" class="text-decoration-none">{{ song.background_image_url|truncatechars:60 }}</a>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5">
+                    <i class="fas fa-music fa-3x text-muted mb-3"></i>
+                    <h4>No Songs Added Yet</h4>
+                    <p class="text-muted">Add your first song to get started!</p>
+                    <a href="{% url 'upload_song' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Add First Song
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Songs pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Audio Test Modal -->
+<div class="modal fade" id="audioTestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Test Audio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <audio id="testAudio" controls class="w-100">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testAudio(audioUrl) {
+    const audio = document.getElementById('testAudio');
+    audio.src = audioUrl;
+    
+    const modal = new bootstrap.Modal(document.getElementById('audioTestModal'));
+    modal.show();
+    
+    // Pause audio when modal is hidden
+    document.getElementById('audioTestModal').addEventListener('hidden.bs.modal', function () {
+        audio.pause();
+    });
+}
+
+function deleteSong(songId, songTitle) {
+    if (!confirm(`Are you sure you want to delete "${songTitle}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    fetch(`/game/admin/song/${songId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting song. Please try again.');
+    });
+}
+</script>
+{% endblock %}
