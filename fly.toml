@@ -4,13 +4,13 @@ app = 'hello-beomsan'
 primary_region = 'nrt'
 
 [build]
+  dockerfile = "Dockerfile"
 
 [deploy]
   release_command = 'python manage.py migrate && python manage.py promote_admin && python manage.py collectstatic --noinput'
 
 [env]
   PORT = '8000'
-  MISE_PYTHON_COMPILE = '1'
 
 [http_service]
   internal_port = 8000

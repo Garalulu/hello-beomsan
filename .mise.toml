@@ -1,5 +1,0 @@
-[tools]
-python = "3.12"
-
-[settings]
-python_compile = true
