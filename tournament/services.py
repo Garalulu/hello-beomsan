@@ -8,16 +8,28 @@ class VotingSessionService:
     @staticmethod
     def create_voting_session(user=None, session_key=None) -> VotingSession:
         """
-        Create a new voting session with randomized 128-song bracket.
+        Create a new voting session with available songs (temporary test mode).
         """
         # Get all available songs
         all_songs = list(Song.objects.all())
         
-        if len(all_songs) < 128:
-            raise ValueError(f"Need at least 128 songs, but only {len(all_songs)} available")
+        if len(all_songs) < 1:
+            raise ValueError(f"Need at least 1 song, but none available")
         
-        # Randomly select and shuffle 128 songs
-        selected_songs = random.sample(all_songs, 128)
+        # For testing: use all available songs (repeat if needed to make pairs)
+        if len(all_songs) == 1:
+            # Special case: duplicate the single song to create a "tournament"
+            selected_songs = all_songs * 2  # Make 2 copies for testing
+        elif len(all_songs) < 128:
+            # Use all available songs
+            selected_songs = all_songs.copy()
+            # Pad to even number if needed
+            if len(selected_songs) % 2 != 0:
+                selected_songs.append(all_songs[0])  # Duplicate one song
+        else:
+            # Normal case: randomly select 128 songs
+            selected_songs = random.sample(all_songs, 128)
+        
         random.shuffle(selected_songs)
         
         # Create bracket structure
@@ -38,7 +50,7 @@ class VotingSessionService:
     @staticmethod
     def generate_bracket_structure(songs: List[Song]) -> Dict[str, Any]:
         """
-        Generate complete bracket structure for 128 songs.
+        Generate bracket structure for any number of songs.
         """
         bracket = {}
         current_songs = [{'id': str(song.id), 'title': song.title, 'artist': song.artist} for song in songs]
