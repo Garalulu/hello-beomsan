@@ -56,6 +56,9 @@
                                     <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAudio('{{ song.audio_url }}')">
                                         <i class="fas fa-play"></i> Test
                                     </button>
+                                    <a href="{% url 'edit_song' song.id %}" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
                                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSong('{{ song.id }}', '{{ song.title }}')">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>

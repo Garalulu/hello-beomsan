@@ -14,6 +14,23 @@
     </div>
 </div>
 
+<!-- Statistics Info -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> Statistics Explained</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Win Rate:</strong> Percentage of tournaments where this song was the final champion
+                </div>
+                <div class="col-md-6">
+                    <strong>Pick Rate:</strong> Percentage of individual matches won by this song
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Sorting Options -->
 <div class="row mb-4">
     <div class="col-12">
@@ -27,8 +44,8 @@
                     <a href="?sort=pick_rate" class="btn {% if sort_by == 'pick_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
                         <i class="fas fa-chart-line"></i> Pick Rate
                     </a>
-                    <a href="?sort=wins" class="btn {% if sort_by == 'wins' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        <i class="fas fa-trophy"></i> Total Wins
+                    <a href="?sort=tournaments" class="btn {% if sort_by == 'tournaments' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-trophy"></i> Tournament Wins
                     </a>
                 </div>
             </div>
@@ -43,7 +60,21 @@
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row align-items-center">
-                    <div class="col-md-6">
+                    <div class="col-auto">
+                        {% if song.background_image_url %}
+                        <img src="{{ song.background_image_url }}" 
+                             class="img-fluid rounded me-3" 
+                             style="width: 80px; height: 80px; object-fit: cover;"
+                             alt="{{ song.title }}">
+                        {% else %}
+                        <div class="bg-light rounded d-flex align-items-center justify-content-center me-3" 
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-music fa-2x text-muted"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-5">
                         <h5 class="card-title mb-1">{{ song.title }}</h5>
                         {% if song.artist %}
                         <p class="text-muted mb-0">by {{ song.artist }}</p>
@@ -54,19 +85,19 @@
                         <div class="row text-center">
                             <div class="col-3">
                                 <div class="fw-bold text-success">{{ song.win_rate|floatformat:1 }}%</div>
-                                <small class="text-muted">Win Rate</small>
+                                <small class="text-muted" title="% of tournaments won as final champion">Win Rate</small>
                             </div>
                             <div class="col-3">
                                 <div class="fw-bold text-info">{{ song.pick_rate|floatformat:1 }}%</div>
-                                <small class="text-muted">Pick Rate</small>
+                                <small class="text-muted" title="% of individual matches won">Pick Rate</small>
                             </div>
                             <div class="col-3">
-                                <div class="fw-bold text-warning">{{ song.total_wins }}</div>
-                                <small class="text-muted">Wins</small>
+                                <div class="fw-bold text-warning">{{ song.tournament_wins }}</div>
+                                <small class="text-muted" title="Number of tournaments won">Tournaments</small>
                             </div>
                             <div class="col-3">
                                 <div class="fw-bold text-secondary">{{ song.total_picks }}</div>
-                                <small class="text-muted">Matches</small>
+                                <small class="text-muted" title="Total matches played">Matches</small>
                             </div>
                         </div>
                         
@@ -79,17 +110,6 @@
                         </div>
                     </div>
                 </div>
-                
-                {% if song.audio_url %}
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <audio controls class="audio-player" preload="metadata">
-                            <source src="{{ song.audio_url }}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
         {% empty %}
@@ -164,19 +184,6 @@
 
 {% block extra_js %}
 <script>
-// Pause other audio when one starts playing
-document.addEventListener('DOMContentLoaded', function() {
-    const audioElements = document.querySelectorAll('audio');
-    
-    audioElements.forEach(audio => {
-        audio.addEventListener('play', function() {
-            audioElements.forEach(otherAudio => {
-                if (otherAudio !== audio) {
-                    otherAudio.pause();
-                }
-            });
-        });
-    });
-});
+// Stats page - no audio controls needed
 </script>
 {% endblock %}

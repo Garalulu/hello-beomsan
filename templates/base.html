@@ -11,11 +11,14 @@
             border: 2px solid #dee2e6;
             transition: all 0.3s ease;
             cursor: pointer;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
         }
-        .song-card:hover {
+        .song-card:hover, .song-card-hover {
             border-color: #007bff;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,123,255,0.2);
+            background: linear-gradient(135deg, rgba(0,123,255,0.1) 0%, rgba(0,123,255,0.05) 100%);
         }
         .song-card.selected {
             border-color: #28a745;

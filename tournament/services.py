@@ -13,22 +13,11 @@ class VotingSessionService:
         # Get all available songs
         all_songs = list(Song.objects.all())
         
-        if len(all_songs) < 1:
-            raise ValueError(f"Need at least 1 song, but none available")
+        if len(all_songs) < 128:
+            raise ValueError(f"Need at least 128 songs, but only {len(all_songs)} available")
         
-        # For testing: use all available songs (repeat if needed to make pairs)
-        if len(all_songs) == 1:
-            # Special case: duplicate the single song to create a "tournament"
-            selected_songs = all_songs * 2  # Make 2 copies for testing
-        elif len(all_songs) < 128:
-            # Use all available songs
-            selected_songs = all_songs.copy()
-            # Pad to even number if needed
-            if len(selected_songs) % 2 != 0:
-                selected_songs.append(all_songs[0])  # Duplicate one song
-        else:
-            # Normal case: randomly select 128 songs
-            selected_songs = random.sample(all_songs, 128)
+        # Randomly select 128 songs for the tournament
+        selected_songs = random.sample(all_songs, 128)
         
         random.shuffle(selected_songs)
         
@@ -99,7 +88,9 @@ class VotingSessionService:
         return {
             'session_id': str(session.id),
             'round': session.current_round,
+            'round_name': session.get_round_name(),
             'match': session.current_match,
+            'match_progress': session.get_match_progress(),
             'song1': {
                 'id': str(song1.id),
                 'title': song1.title,
@@ -123,63 +114,84 @@ class VotingSessionService:
         """
         Cast vote for a song and advance to next match.
         """
-        with transaction.atomic():
-            # Get current match data
-            match_data = session.get_current_match_data()
-            if not match_data:
+        import time
+        from django.db import OperationalError
+        
+        # Retry mechanism for database locks
+        for attempt in range(3):
+            try:
+                # Get current match data
+                match_data = session.get_current_match_data()
+                if not match_data:
+                    print("No match data available")
+                    return False
+                
+                # Validate chosen song
+                chosen_song = Song.objects.get(id=chosen_song_id)
+                song1 = Song.objects.get(id=match_data['song1']['id'])
+                song2 = Song.objects.get(id=match_data['song2']['id'])
+                
+                if chosen_song not in [song1, song2]:
+                    print(f"Invalid song choice: {chosen_song_id}")
+                    return False
+                
+                # Create match record
+                match = Match.objects.create(
+                    session=session,
+                    round_number=session.current_round,
+                    match_number=session.current_match,
+                    song1=song1,
+                    song2=song2,
+                    winner=chosen_song
+                )
+                
+                # Create vote record
+                Vote.objects.create(
+                    match=match,
+                    session=session,
+                    chosen_song=chosen_song
+                )
+                
+                # Update song statistics
+                chosen_song.total_wins += 1
+                chosen_song.total_picks += 1
+                chosen_song.save()
+                
+                loser = song2 if chosen_song == song1 else song1
+                loser.total_losses += 1
+                loser.total_picks += 1
+                loser.save()
+                
+                # Update bracket data with winner
+                round_key = f'round_{session.current_round}'
+                session.bracket_data[round_key][session.current_match - 1]['winner'] = {
+                    'id': str(chosen_song.id),
+                    'title': chosen_song.title,
+                    'artist': chosen_song.artist
+                }
+                session.bracket_data[round_key][session.current_match - 1]['completed'] = True
+                
+                # Update next round if this round is complete
+                VotingSessionService.update_next_round(session)
+                
+                # Advance to next match
+                session.advance_to_next_match()
+                
+                return True
+                
+            except OperationalError as e:
+                if "database is locked" in str(e) and attempt < 2:
+                    print(f"Database locked, retrying attempt {attempt + 1}")
+                    time.sleep(0.1)  # Wait 100ms before retry
+                    continue
+                else:
+                    print(f"Database error after {attempt + 1} attempts: {str(e)}")
+                    return False
+            except Exception as e:
+                print(f"Unexpected error in cast_vote: {type(e).__name__}: {str(e)}")
                 return False
-            
-            # Validate chosen song
-            chosen_song = Song.objects.get(id=chosen_song_id)
-            song1 = Song.objects.get(id=match_data['song1']['id'])
-            song2 = Song.objects.get(id=match_data['song2']['id'])
-            
-            if chosen_song not in [song1, song2]:
-                return False
-            
-            # Create match record
-            match = Match.objects.create(
-                session=session,
-                round_number=session.current_round,
-                match_number=session.current_match,
-                song1=song1,
-                song2=song2,
-                winner=chosen_song
-            )
-            
-            # Create vote record
-            Vote.objects.create(
-                match=match,
-                session=session,
-                chosen_song=chosen_song
-            )
-            
-            # Update song statistics
-            chosen_song.total_wins += 1
-            chosen_song.total_picks += 1
-            chosen_song.save()
-            
-            loser = song2 if chosen_song == song1 else song1
-            loser.total_losses += 1
-            loser.total_picks += 1
-            loser.save()
-            
-            # Update bracket data with winner
-            round_key = f'round_{session.current_round}'
-            session.bracket_data[round_key][session.current_match - 1]['winner'] = {
-                'id': str(chosen_song.id),
-                'title': chosen_song.title,
-                'artist': chosen_song.artist
-            }
-            session.bracket_data[round_key][session.current_match - 1]['completed'] = True
-            
-            # Update next round if this round is complete
-            VotingSessionService.update_next_round(session)
-            
-            # Advance to next match
-            session.advance_to_next_match()
-            
-            return True
+        
+        return False
     
     @staticmethod
     def update_next_round(session: VotingSession):

@@ -12,9 +12,10 @@ class Song(models.Model):
     background_image_url = models.URLField(max_length=500, blank=True)  # Google Drive image URL
     
     # Statistics
-    total_wins = models.PositiveIntegerField(default=0)
+    total_wins = models.PositiveIntegerField(default=0)  # Match wins (pick rate)
     total_losses = models.PositiveIntegerField(default=0)
     total_picks = models.PositiveIntegerField(default=0)  # How many times this song appeared in matches
+    tournament_wins = models.PositiveIntegerField(default=0)  # Tournament wins (win rate)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -27,17 +28,18 @@ class Song(models.Model):
     
     @property
     def win_rate(self):
-        if self.total_picks == 0:
+        """Tournament win rate: % of completed tournaments where this song was the final winner"""
+        completed_tournaments = VotingSession.objects.filter(status='COMPLETED').count()
+        if completed_tournaments == 0:
             return 0
-        return (self.total_wins / self.total_picks) * 100
+        return (self.tournament_wins / completed_tournaments) * 100
     
     @property
     def pick_rate(self):
-        # Calculate how often this song is picked relative to total votes
-        total_votes = Vote.objects.count()
-        if total_votes == 0:
+        """Pick rate: % of individual matches won by this song"""
+        if self.total_picks == 0:
             return 0
-        return (self.total_picks / total_votes) * 100
+        return (self.total_wins / self.total_picks) * 100
 
 
 class VotingSession(models.Model):
@@ -71,6 +73,9 @@ class VotingSession(models.Model):
     
     def get_current_match_data(self):
         """Get current match songs from bracket data"""
+        if self.status == 'COMPLETED':
+            return None
+            
         if not self.bracket_data:
             return None
         
@@ -99,8 +104,50 @@ class VotingSession(models.Model):
                     self.current_match = 1
                 else:
                     self.status = 'COMPLETED'
+                    # Track tournament winner
+                    self._record_tournament_winner()
         
         self.save()
+    
+    def _record_tournament_winner(self):
+        """Record tournament winner when session completes"""
+        # Find the winner from the final round
+        final_round_key = f"round_{self.current_round}"
+        if final_round_key in self.bracket_data:
+            final_matches = self.bracket_data[final_round_key]
+            if final_matches and final_matches[0].get('winner'):
+                winner_data = final_matches[0]['winner']
+                try:
+                    winner_song = Song.objects.get(id=winner_data['id'])
+                    winner_song.tournament_wins += 1
+                    winner_song.save()
+                except Song.DoesNotExist:
+                    pass
+    
+    def get_round_name(self):
+        """Get proper tournament round name"""
+        total_rounds = len(self.bracket_data)
+        if total_rounds == 7:  # 128 song tournament
+            round_names = {
+                1: "Round of 64",
+                2: "Round of 32", 
+                3: "Round of 16",
+                4: "Quarter-Finals",
+                5: "Semi-Finals",
+                6: "Finals",
+                7: "Grand Finals"
+            }
+            return round_names.get(self.current_round, f"Round {self.current_round}")
+        else:
+            return f"Round {self.current_round}"
+    
+    def get_match_progress(self):
+        """Get current match progress (e.g., "2/64")"""
+        round_key = f"round_{self.current_round}"
+        if round_key in self.bracket_data:
+            total_matches = len(self.bracket_data[round_key])
+            return f"{self.current_match}/{total_matches}"
+        return f"{self.current_match}/?"
 
 
 class Match(models.Model):

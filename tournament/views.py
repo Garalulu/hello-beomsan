@@ -105,12 +105,33 @@ def start_game(request):
 @ensure_csrf_cookie
 def vote(request):
     """Display voting interface"""
-    # Get or create voting session
+    # First check for recently completed session to show results
     if request.user.is_authenticated:
-        session, existing = VotingSessionService.get_or_create_session(user=request.user)
+        completed_session = VotingSession.objects.filter(
+            user=request.user,
+            status='COMPLETED'
+        ).order_by('-updated_at').first()
     else:
         if not request.session.session_key:
             request.session.create()
+        completed_session = VotingSession.objects.filter(
+            session_key=request.session.session_key,
+            status='COMPLETED'
+        ).order_by('-updated_at').first()
+    
+    # If there's a recently completed session (within last 10 minutes), show results
+    if completed_session:
+        from django.utils import timezone
+        from datetime import timedelta
+        if completed_session.updated_at > timezone.now() - timedelta(minutes=10):
+            return render(request, 'main/completed.html', {
+                'session': completed_session
+            })
+    
+    # Get or create active voting session
+    if request.user.is_authenticated:
+        session, existing = VotingSessionService.get_or_create_session(user=request.user)
+    else:
         session, existing = VotingSessionService.get_or_create_session(
             session_key=request.session.session_key
         )
@@ -177,9 +198,17 @@ def cast_vote(request):
             })
             
     except Exception as e:
+        import traceback
+        error_details = {
+            'error_type': type(e).__name__,
+            'error_message': str(e),
+            'traceback': traceback.format_exc()
+        }
+        print(f"Vote casting error: {error_details}")
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'debug': error_details
         })
 
 
@@ -190,26 +219,21 @@ def song_stats(request):
     
     if sort_by == 'pick_rate':
         songs = Song.objects.filter(total_picks__gt=0).order_by('-total_picks')
-    elif sort_by == 'wins':
-        songs = Song.objects.filter(total_wins__gt=0).order_by('-total_wins')
+        # Calculate pick rate and sort in Python
+        songs_list = list(songs)
+        songs_list.sort(key=lambda s: s.pick_rate, reverse=True)
+    elif sort_by == 'tournaments':
+        songs = Song.objects.order_by('-tournament_wins')
+        songs_list = list(songs)
     else:  # win_rate
-        songs = Song.objects.filter(total_picks__gt=0).order_by('-total_wins')
+        songs = Song.objects.filter(total_picks__gt=0).order_by('-tournament_wins')
         # Calculate win rate and sort in Python for now
         songs_list = list(songs)
         songs_list.sort(key=lambda s: s.win_rate, reverse=True)
-        
-        # Convert back to queryset-like structure for pagination
-        from django.core.paginator import Paginator
-        paginator = Paginator(songs_list, 20)
-        page_number = request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
-        
-        return render(request, 'main/stats.html', {
-            'page_obj': page_obj,
-            'sort_by': sort_by
-        })
     
-    paginator = Paginator(songs, 20)
+    # Convert back to queryset-like structure for pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(songs_list, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -267,6 +291,37 @@ def manage_songs(request):
 
 
 @staff_member_required
+@ensure_csrf_cookie
+def edit_song(request, song_id):
+    """Edit song details"""
+    song = get_object_or_404(Song, id=song_id)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        artist = request.POST.get('artist', '')
+        audio_url = request.POST.get('audio_url')
+        background_image_url = request.POST.get('background_image_url', '')
+        
+        if not title or not audio_url:
+            messages.error(request, "Title and audio URL are required.")
+        else:
+            try:
+                song.title = title
+                song.artist = artist
+                song.audio_url = audio_url
+                song.background_image_url = background_image_url
+                song.save()
+                
+                messages.success(request, f"Song '{title}' updated successfully!")
+                return redirect('manage_songs')
+                
+            except Exception as e:
+                messages.error(request, f"Error updating song: {str(e)}")
+    
+    return render(request, 'admin/edit_song.html', {'song': song})
+
+
+@staff_member_required
 @require_POST
 @ensure_csrf_cookie
 def delete_song(request, song_id):
@@ -287,3 +342,104 @@ def delete_song(request, song_id):
             'success': False,
             'error': str(e)
         })
+
+
+@staff_member_required
+@ensure_csrf_cookie
+def tournament_manage(request):
+    """Tournament management dashboard"""
+    # Get active sessions
+    active_sessions = VotingSession.objects.filter(status='ACTIVE').select_related('user').order_by('-updated_at')
+    
+    # Get recent completed sessions
+    completed_sessions = VotingSession.objects.filter(status='COMPLETED').select_related('user').order_by('-updated_at')[:20]
+    
+    # Calculate statistics
+    total_active = active_sessions.count()
+    total_completed = VotingSession.objects.filter(status='COMPLETED').count()
+    total_abandoned = VotingSession.objects.filter(status='ABANDONED').count()
+    
+    return render(request, 'admin/tournament_manage.html', {
+        'active_sessions': active_sessions,
+        'completed_sessions': completed_sessions,
+        'stats': {
+            'total_active': total_active,
+            'total_completed': total_completed,
+            'total_abandoned': total_abandoned,
+        }
+    })
+
+
+@staff_member_required
+@ensure_csrf_cookie
+def tournament_history(request):
+    """Tournament history with filtering"""
+    sessions = VotingSession.objects.filter(status='COMPLETED').select_related('user').order_by('-updated_at')
+    
+    # Filter by user if specified
+    user_filter = request.GET.get('user')
+    if user_filter:
+        sessions = sessions.filter(user__username__icontains=user_filter)
+    
+    # Pagination
+    paginator = Paginator(sessions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'admin/tournament_history.html', {
+        'page_obj': page_obj,
+        'user_filter': user_filter or ''
+    })
+
+
+@staff_member_required
+@ensure_csrf_cookie
+def user_manage(request):
+    """User management with statistics"""
+    from django.db.models import Count, Q
+    from accounts.models import UserProfile
+    
+    # Get users with their statistics
+    users = User.objects.select_related('profile').annotate(
+        total_sessions=Count('voting_sessions'),
+        completed_sessions=Count('voting_sessions', filter=Q(voting_sessions__status='COMPLETED')),
+        active_sessions=Count('voting_sessions', filter=Q(voting_sessions__status='ACTIVE'))
+    ).order_by('-total_sessions')
+    
+    # Filter by username if specified
+    username_filter = request.GET.get('username')
+    if username_filter:
+        users = users.filter(username__icontains=username_filter)
+    
+    # Pagination
+    paginator = Paginator(users, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'admin/user_manage.html', {
+        'page_obj': page_obj,
+        'username_filter': username_filter or ''
+    })
+
+
+@staff_member_required
+def session_detail(request, session_id):
+    """View detailed session information"""
+    session = get_object_or_404(VotingSession, id=session_id)
+    
+    # Get all matches for this session
+    matches = Match.objects.filter(session=session).select_related('song1', 'song2', 'winner').order_by('round_number', 'match_number')
+    
+    # Get session winner if completed
+    winner_song = None
+    if session.status == 'COMPLETED':
+        # Find the winner from the final match
+        final_match = matches.filter(round_number=session.current_round).first()
+        if final_match:
+            winner_song = final_match.winner
+    
+    return render(request, 'admin/session_detail.html', {
+        'session': session,
+        'matches': matches,
+        'winner_song': winner_song
+    })

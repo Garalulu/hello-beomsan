@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Tournament Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-trophy"></i> Tournament Management</h1>
+            <a href="{% url 'tournament_history' %}" class="btn btn-outline-primary">
+                <i class="fas fa-history"></i> View Full History
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4">{{ stats.total_active }}</div>
+                        <div>Active Sessions</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-play-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4">{{ stats.total_completed }}</div>
+                        <div>Completed Sessions</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <div class="h4">{{ stats.total_abandoned }}</div>
+                        <div>Abandoned Sessions</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-times-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Sessions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-play-circle text-primary"></i> Active Sessions ({{ active_sessions.count }})</h5>
+            </div>
+            <div class="card-body">
+                {% if active_sessions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Round</th>
+                                <th>Match Progress</th>
+                                <th>Started</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in active_sessions %}
+                            <tr>
+                                <td>
+                                    {% if session.user %}
+                                        <i class="fas fa-user"></i> {{ session.user.username }}
+                                        {% if session.user.profile %}
+                                        <br><small class="text-muted">{{ session.user.profile.osu_username }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <i class="fas fa-user-secret"></i> Anonymous
+                                        <br><small class="text-muted">{{ session.session_key|truncatechars:10 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ session.get_round_name }}</span>
+                                </td>
+                                <td>
+                                    {{ session.get_match_progress }}
+                                    <div class="progress mt-1" style="height: 5px;">
+                                        {% with progress=session.voting_sessions.first.calculate_progress %}
+                                        <div class="progress-bar" role="progressbar" style="width: {{ progress.percentage }}%"></div>
+                                        {% endwith %}
+                                    </div>
+                                </td>
+                                <td>{{ session.created_at|date:"M d, H:i" }}</td>
+                                <td>{{ session.updated_at|date:"M d, H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-play-circle fa-3x text-muted mb-3"></i>
+                    <h5>No Active Sessions</h5>
+                    <p class="text-muted">All tournaments are either completed or abandoned.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Completed Sessions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-check-circle text-success"></i> Recent Completed Sessions</h5>
+            </div>
+            <div class="card-body">
+                {% if completed_sessions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Completed</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in completed_sessions %}
+                            <tr>
+                                <td>
+                                    {% if session.user %}
+                                        <i class="fas fa-user"></i> {{ session.user.username }}
+                                        {% if session.user.profile %}
+                                        <br><small class="text-muted">{{ session.user.profile.osu_username }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <i class="fas fa-user-secret"></i> Anonymous
+                                        <br><small class="text-muted">{{ session.session_key|truncatechars:10 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ session.updated_at|date:"M d, H:i" }}</td>
+                                <td>
+                                    {% with duration=session.updated_at|timeuntil:session.created_at %}
+                                    {{ duration }}
+                                    {% endwith %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-trophy"></i> View Winner
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
+                    <h5>No Completed Sessions</h5>
+                    <p class="text-muted">No tournaments have been completed yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

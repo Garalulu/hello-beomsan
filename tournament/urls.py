@@ -10,5 +10,14 @@ urlpatterns = [
     # Admin paths
     path('admin/upload/', views.upload_song, name='upload_song'),
     path('admin/manage/', views.manage_songs, name='manage_songs'),
+    path('admin/song/<uuid:song_id>/edit/', views.edit_song, name='edit_song'),
     path('admin/song/<uuid:song_id>/delete/', views.delete_song, name='delete_song'),
+    
+    # Tournament management
+    path('admin/tournaments/', views.tournament_manage, name='tournament_manage'),
+    path('admin/tournaments/history/', views.tournament_history, name='tournament_history'),
+    path('admin/session/<uuid:session_id>/', views.session_detail, name='session_detail'),
+    
+    # User management
+    path('admin/users/', views.user_manage, name='user_manage'),
 ]

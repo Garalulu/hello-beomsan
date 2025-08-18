@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Song{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-edit"></i> Edit Song</h4>
+            </div>
+            <div class="card-body">
+                <!-- Messages -->
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Song Title *</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="{{ song.title }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="artist" class="form-label">Artist</label>
+                        <input type="text" class="form-control" id="artist" name="artist" 
+                               value="{{ song.artist }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="audio_url" class="form-label">Audio URL *</label>
+                        <input type="url" class="form-control" id="audio_url" name="audio_url" 
+                               value="{{ song.audio_url }}" required>
+                        <div class="form-text">
+                            Google Drive: https://drive.google.com/uc?export=download&id=FILE_ID
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" 
+                                onclick="testAudioUrl()">
+                            <i class="fas fa-play"></i> Test Audio
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="background_image_url" class="form-label">Background Image URL</label>
+                        <input type="url" class="form-control" id="background_image_url" name="background_image_url" 
+                               value="{{ song.background_image_url }}">
+                        <div class="form-text">
+                            Google Drive: https://drive.google.com/uc?export=view&id=FILE_ID
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" 
+                                onclick="previewImage()">
+                            <i class="fas fa-eye"></i> Preview Image
+                        </button>
+                    </div>
+
+                    <!-- Current Statistics -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6>Current Statistics</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-3">
+                                    <div class="fw-bold text-success">{{ song.total_wins }}</div>
+                                    <small class="text-muted">Wins</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="fw-bold text-danger">{{ song.total_losses }}</div>
+                                    <small class="text-muted">Losses</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="fw-bold text-primary">{{ song.total_picks }}</div>
+                                    <small class="text-muted">Total Matches</small>
+                                </div>
+                                <div class="col-3">
+                                    <div class="fw-bold text-warning">{{ song.tournament_wins }}</div>
+                                    <small class="text-muted">Tournament Wins</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'manage_songs' %}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-arrow-left"></i> Back to Manage
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update Song
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audio Test Modal -->
+<div class="modal fade" id="audioTestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Test Audio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <audio id="testAudio" controls class="w-100">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Image Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="previewImage" class="img-fluid" style="max-height: 400px;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testAudioUrl() {
+    const audioUrl = document.getElementById('audio_url').value;
+    if (!audioUrl) {
+        alert('Please enter an audio URL first.');
+        return;
+    }
+    
+    const audio = document.getElementById('testAudio');
+    audio.src = audioUrl;
+    
+    const modal = new bootstrap.Modal(document.getElementById('audioTestModal'));
+    modal.show();
+    
+    // Pause audio when modal is hidden
+    document.getElementById('audioTestModal').addEventListener('hidden.bs.modal', function () {
+        audio.pause();
+    });
+}
+
+function previewImage() {
+    const imageUrl = document.getElementById('background_image_url').value;
+    if (!imageUrl) {
+        alert('Please enter an image URL first.');
+        return;
+    }
+    
+    const img = document.getElementById('previewImage');
+    img.src = imageUrl;
+    img.onerror = function() {
+        alert('Failed to load image. Please check the URL.');
+    };
+    
+    const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
