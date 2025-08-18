@@ -1,7 +1,11 @@
-# fly.toml configuration for Django deployment
+# fly.toml app configuration file generated for Django app
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'hello-beomsan'
 primary_region = 'nrt'
+console_command = '/code/manage.py shell'
 
 [build]
   dockerfile = "Dockerfile"
@@ -24,3 +28,7 @@ primary_region = 'nrt'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[[statics]]
+  guest_path = '/code/staticfiles'
+  url_prefix = '/static/'
