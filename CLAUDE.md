@@ -138,3 +138,4 @@ Songs use Google Drive URLs:
 - Statistics updated in real-time during voting
 - Bootstrap 5 with custom CSS for song cards and voting UI
 - Audio players auto-pause when another starts playing
+- Test everything the changes locally first before committing

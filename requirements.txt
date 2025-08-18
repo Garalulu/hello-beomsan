@@ -7,3 +7,4 @@ tzdata==2025.2
 requests==2.32.3
 django-cors-headers==4.6.0
 whitenoise==6.8.2
+python-dotenv==1.0.0
