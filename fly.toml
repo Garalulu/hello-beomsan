@@ -8,10 +8,10 @@ primary_region = 'nrt'
 console_command = '/code/manage.py shell'
 
 [deploy]
-release_command = 'python manage.py migrate'
 
 [build]
   dockerfile = "Dockerfile"
+  strategy = "dockerfile"
 
 [env]
   PORT = '8000'
