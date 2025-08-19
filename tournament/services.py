@@ -3,12 +3,25 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from django.db import transaction
 from django.db.models import Q
+from django.core.cache import cache
 from .models import Song, VotingSession, Match, Vote
 
 logger = logging.getLogger(__name__)
 
 
 class VotingSessionService:
+    @staticmethod
+    def get_cached_completed_tournaments_count():
+        """Get cached count of completed tournaments to avoid repeated queries"""
+        cache_key = 'completed_tournaments_count'
+        count = cache.get(cache_key)
+        
+        if count is None:
+            count = VotingSession.objects.filter(status='COMPLETED').count()
+            cache.set(cache_key, count, timeout=300)  # Cache for 5 minutes
+        
+        return count
+    
     @staticmethod
     def create_voting_session(user=None, session_key=None) -> Optional[VotingSession]:
         """
@@ -246,17 +259,26 @@ class VotingSessionService:
                         logger.error(f"Invalid match data structure for session {session.id}")
                         return False
                     
-                    # Validate chosen song
+                    # Validate chosen song with single query
                     try:
-                        chosen_song = Song.objects.get(id=chosen_song_id)
-                        song1 = Song.objects.get(id=song1_id)
-                        song2 = Song.objects.get(id=song2_id)
-                    except Song.DoesNotExist as e:
-                        logger.error(f"Song not found: {e}")
-                        return False
-                    
-                    if chosen_song not in [song1, song2]:
-                        logger.error(f"Invalid song choice {chosen_song_id} for session {session.id}")
+                        # Get all required songs in one query
+                        song_ids = [chosen_song_id, song1_id, song2_id]
+                        songs = {str(s.id): s for s in Song.objects.filter(id__in=song_ids)}
+                        
+                        if len(songs) != 3:
+                            logger.error(f"Not all songs found: expected 3, got {len(songs)}")
+                            return False
+                        
+                        chosen_song = songs[chosen_song_id]
+                        song1 = songs[song1_id]
+                        song2 = songs[song2_id]
+                        
+                        if chosen_song_id not in [song1_id, song2_id]:
+                            logger.error(f"Invalid song choice {chosen_song_id} for session {session.id}")
+                            return False
+                            
+                    except (KeyError, ValueError) as e:
+                        logger.error(f"Error validating songs: {e}")
                         return False
                     
                     # Check if match already exists (prevent duplicate votes)

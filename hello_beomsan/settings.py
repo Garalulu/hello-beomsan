@@ -81,6 +81,15 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'loaders': [
+                ('django.template.loaders.cached.Loader', [
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                ]),
+            ] if not DEBUG else [
+                'django.template.loaders.filesystem.Loader',
+                'django.template.loaders.app_directories.Loader',
+            ],
         },
     },
 ]
@@ -98,6 +107,19 @@ DATABASES = {
         'OPTIONS': {
             'timeout': 30,
             'init_command': "PRAGMA journal_mode=WAL;",
+        }
+    }
+}
+
+# Caching configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'song-tournament-cache',
+        'TIMEOUT': 300,  # 5 minutes
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
         }
     }
 }
@@ -140,8 +162,19 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# WhiteNoise configuration
+# Static files optimization
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+] if (BASE_DIR / "static").exists() else []
+
+# WhiteNoise configuration with compression and caching
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise settings for better performance
+if not DEBUG:
+    WHITENOISE_USE_FINDERS = True
+    WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
+    WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

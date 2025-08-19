@@ -1,7 +1,35 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import F, Case, When, FloatField, Q
 import uuid
 import json
+
+
+class SongManager(models.Manager):
+    def with_calculated_rates(self):
+        """Annotate songs with calculated win and pick rates using database operations"""
+        return self.annotate(
+            calculated_pick_rate=Case(
+                When(total_picks=0, then=0.0),
+                default=(F('total_wins') * 100.0) / F('total_picks'),
+                output_field=FloatField()
+            )
+        )
+    
+    def for_statistics(self):
+        """Optimized queryset for statistics page with pre-cached tournament count"""
+        from .services import VotingSessionService
+        
+        # Get cached completed tournaments count
+        completed_count = VotingSessionService.get_cached_completed_tournaments_count()
+        
+        queryset = self.with_calculated_rates()
+        
+        # Cache the completed tournaments count on each song instance
+        for song in queryset:
+            song._cached_completed_tournaments = completed_count
+        
+        return queryset
 
 
 class Song(models.Model):
@@ -20,8 +48,16 @@ class Song(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    objects = SongManager()
+    
     class Meta:
         db_table = 'songs'
+        indexes = [
+            models.Index(fields=['-tournament_wins'], name='song_tournament_wins_idx'),
+            models.Index(fields=['-total_wins'], name='song_total_wins_idx'),
+            models.Index(fields=['-total_picks'], name='song_total_picks_idx'),
+            models.Index(fields=['total_picks'], name='song_total_picks_gt_idx'),  # For filtering total_picks > 0
+        ]
         
     def __str__(self):
         return f"{self.title} - {self.artist}" if self.artist else self.title
@@ -29,7 +65,12 @@ class Song(models.Model):
     @property
     def win_rate(self):
         """Tournament win rate: % of completed tournaments where this song was the final winner"""
-        completed_tournaments = VotingSession.objects.filter(status='COMPLETED').count()
+        # Use cached value if available, otherwise calculate
+        if hasattr(self, '_cached_completed_tournaments'):
+            completed_tournaments = self._cached_completed_tournaments
+        else:
+            completed_tournaments = VotingSession.objects.filter(status='COMPLETED').count()
+        
         if completed_tournaments == 0:
             return 0
         return (self.tournament_wins / completed_tournaments) * 100
@@ -66,6 +107,12 @@ class VotingSession(models.Model):
     
     class Meta:
         db_table = 'voting_sessions'
+        indexes = [
+            models.Index(fields=['status'], name='voting_session_status_idx'),
+            models.Index(fields=['user'], name='voting_session_user_idx'),
+            models.Index(fields=['session_key'], name='voting_session_key_idx'),
+            models.Index(fields=['-created_at'], name='voting_session_created_idx'),
+        ]
         
     def __str__(self):
         user_str = self.user.username if self.user else f"Anonymous ({self.session_key})"

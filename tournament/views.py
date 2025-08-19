@@ -531,23 +531,17 @@ def song_stats(request):
     # Get sorting parameter
     sort_by = request.GET.get('sort', 'win_rate')
     
+    # Use optimized manager methods for better performance
     if sort_by == 'pick_rate':
-        songs = Song.objects.filter(total_picks__gt=0).order_by('-total_picks')
-        # Calculate pick rate and sort in Python
-        songs_list = list(songs)
-        songs_list.sort(key=lambda s: s.pick_rate, reverse=True)
+        songs = Song.objects.for_statistics().filter(total_picks__gt=0).order_by('-calculated_pick_rate')
     elif sort_by == 'tournaments':
-        songs = Song.objects.order_by('-tournament_wins')
-        songs_list = list(songs)
+        songs = Song.objects.for_statistics().order_by('-tournament_wins')
     else:  # win_rate
-        songs = Song.objects.filter(total_picks__gt=0).order_by('-tournament_wins')
-        # Calculate win rate and sort in Python for now
-        songs_list = list(songs)
-        songs_list.sort(key=lambda s: s.win_rate, reverse=True)
+        songs = Song.objects.for_statistics().filter(tournament_wins__gt=0).order_by('-tournament_wins')
     
-    # Convert back to queryset-like structure for pagination
+    # Use QuerySet directly for pagination (more efficient)
     from django.core.paginator import Paginator
-    paginator = Paginator(songs_list, 20)
+    paginator = Paginator(songs, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

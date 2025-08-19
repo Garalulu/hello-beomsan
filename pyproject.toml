@@ -9,7 +9,7 @@ description = "Song Tournament Voting System - World Cup style elimination brack
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Garalulu", email = "noreply@anthropic.com"},
+    {name = "Garalulu", email = "pso9809@gmail.com"},
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
