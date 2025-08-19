@@ -11,7 +11,7 @@ console_command = '/code/manage.py shell'
   dockerfile = "Dockerfile"
 
 [deploy]
-  release_command = '/bin/sh -c "python manage.py migrate && python manage.py promote_admin && python manage.py collectstatic --noinput"'
+  release_command = '/bin/sh -c "mkdir -p /data && chmod 755 /data && python manage.py migrate && python manage.py promote_admin && python manage.py collectstatic --noinput"'
 
 [env]
   PORT = '8000'
