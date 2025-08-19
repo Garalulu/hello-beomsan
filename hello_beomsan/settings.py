@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-elid%^9g#_41bgb289h@3f)e7nsluvzyy6_04f48h=y!6c2gdo'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'  # Force migration redeploy
 
 APP_NAME = os.environ.get("FLY_APP_NAME")
 if APP_NAME:
