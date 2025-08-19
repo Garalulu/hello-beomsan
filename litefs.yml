@@ -23,6 +23,7 @@ proxy:
 
 # Execute Django application with gunicorn
 exec:
+  - cmd: "python manage.py collectstatic --noinput"
   - cmd: "python manage.py migrate"
   - cmd: "python manage.py promote_admin"
   - cmd: "gunicorn --bind 0.0.0.0:8000 hello_beomsan.wsgi:application"
