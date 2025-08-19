@@ -71,6 +71,73 @@ class VotingSession(models.Model):
         user_str = self.user.username if self.user else f"Anonymous ({self.session_key})"
         return f"Session by {user_str} - Round {self.current_round}"
     
+    def get_round_name(self):
+        """Get human readable round name"""
+        if self.current_round == 1:
+            return "Final"
+        elif self.current_round == 2:
+            return "Semi-Final"
+        elif self.current_round == 3:
+            return "Quarter-Final"
+        elif self.current_round == 4:
+            return "Round of 16"
+        elif self.current_round == 5:
+            return "Round of 32"
+        elif self.current_round == 6:
+            return "Round of 64"
+        elif self.current_round == 7:
+            return "Round of 128"
+        else:
+            return f"Round {self.current_round}"
+    
+    def get_match_progress(self):
+        """Get match progress string"""
+        if self.status == 'COMPLETED':
+            return "Tournament Complete"
+        elif self.status == 'ABANDONED':
+            return "Tournament Abandoned"
+        
+        round_key = f"round_{self.current_round}"
+        if round_key in self.bracket_data:
+            total_matches = len(self.bracket_data[round_key])
+            return f"Match {self.current_match}/{total_matches}"
+        return "No matches"
+    
+    def calculate_progress(self):
+        """Calculate overall tournament progress percentage"""
+        if self.status == 'COMPLETED':
+            return {'percentage': 100, 'matches_completed': 'All', 'matches_total': 'All'}
+        
+        total_matches = 0
+        completed_matches = 0
+        
+        for round_num in range(self.current_round + 1, 8):  # Count future rounds
+            round_key = f"round_{round_num}"
+            if round_key in self.bracket_data:
+                total_matches += len(self.bracket_data[round_key])
+        
+        for round_num in range(1, self.current_round):  # Count completed rounds
+            round_key = f"round_{round_num}"
+            if round_key in self.bracket_data:
+                total_matches += len(self.bracket_data[round_key])
+                completed_matches += len(self.bracket_data[round_key])
+        
+        # Add current round
+        round_key = f"round_{self.current_round}"
+        if round_key in self.bracket_data:
+            total_matches += len(self.bracket_data[round_key])
+            completed_matches += (self.current_match - 1)
+        
+        if total_matches == 0:
+            return {'percentage': 0, 'matches_completed': 0, 'matches_total': 0}
+        
+        percentage = (completed_matches / total_matches) * 100
+        return {
+            'percentage': round(percentage, 1),
+            'matches_completed': completed_matches,
+            'matches_total': total_matches
+        }
+    
     def get_current_match_data(self):
         """Get current match songs from bracket data"""
         if self.status == 'COMPLETED':

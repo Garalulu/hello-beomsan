@@ -84,13 +84,24 @@
                     {% if user.is_staff %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                            Admin
+                            <i class="fas fa-cog"></i> Admin
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'upload_song' %}">Add Song</a></li>
-                            <li><a class="dropdown-item" href="{% url 'manage_songs' %}">Manage Songs</a></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-music"></i> Songs</h6></li>
+                            <li><a class="dropdown-item" href="{% url 'upload_song' %}"><i class="fas fa-plus"></i> Add Song</a></li>
+                            <li><a class="dropdown-item" href="{% url 'manage_songs' %}"><i class="fas fa-edit"></i> Manage Songs</a></li>
+                            
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-trophy"></i> Tournaments</h6></li>
+                            <li><a class="dropdown-item" href="{% url 'tournament_manage' %}"><i class="fas fa-chart-line"></i> Tournament Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{% url 'tournament_history' %}"><i class="fas fa-history"></i> Tournament History</a></li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-users"></i> Users</h6></li>
+                            <li><a class="dropdown-item" href="{% url 'user_manage' %}"><i class="fas fa-users-cog"></i> User Management</a></li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="fas fa-database"></i> Django Admin</a></li>
                         </ul>
                     </li>
                     {% endif %}

@@ -140,3 +140,4 @@ Songs use Google Drive URLs:
 - Audio players auto-pause when another starts playing
 - Test everything the changes locally first before committing
 - use uv for python command
+- Commit and push the changes after test is finshed well

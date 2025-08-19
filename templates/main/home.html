@@ -8,7 +8,19 @@
         <div class="text-center mb-5">
             <h1 class="display-4"><i class="fas fa-music"></i> Song Tournament</h1>
             <p class="lead">Choose your favorite songs in head-to-head battles!</p>
-            <p class="text-muted">{{ total_songs }} songs available • {{ total_votes }} votes cast</p>
+            {% if error_message %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> {{ error_message }}
+                </div>
+            {% else %}
+                {% if total_songs == 0 %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> No songs available yet. Please contact an administrator to add songs.
+                    </div>
+                {% else %}
+                    <p class="text-muted">{{ total_songs }} songs available • {{ total_votes }} votes cast</p>
+                {% endif %}
+            {% endif %}
         </div>
 
         <div class="row justify-content-center">

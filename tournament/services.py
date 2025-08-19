@@ -1,196 +1,359 @@
 import random
-from typing import List, Dict, Any
+import logging
+from typing import List, Dict, Any, Optional, Tuple
 from django.db import transaction
+from django.db.models import Q
 from .models import Song, VotingSession, Match, Vote
+
+logger = logging.getLogger(__name__)
 
 
 class VotingSessionService:
     @staticmethod
-    def create_voting_session(user=None, session_key=None) -> VotingSession:
+    def create_voting_session(user=None, session_key=None) -> Optional[VotingSession]:
         """
         Create a new voting session with available songs (temporary test mode).
+        Returns None if unable to create session due to errors.
         """
-        # Get all available songs
-        all_songs = list(Song.objects.all())
-        
-        if len(all_songs) < 128:
-            raise ValueError(f"Need at least 128 songs, but only {len(all_songs)} available")
-        
-        # Randomly select 128 songs for the tournament
-        selected_songs = random.sample(all_songs, 128)
-        
-        random.shuffle(selected_songs)
-        
-        # Create bracket structure
-        bracket_data = VotingSessionService.generate_bracket_structure(selected_songs)
-        
-        # Create voting session
-        session = VotingSession.objects.create(
-            user=user,
-            session_key=session_key,
-            bracket_data=bracket_data,
-            current_round=1,
-            current_match=1,
-            status='ACTIVE'
-        )
-        
-        return session
+        try:
+            # Get all available songs
+            all_songs = list(Song.objects.all())
+            
+            if len(all_songs) < 1:
+                logger.error("Cannot create voting session: No songs in database")
+                return None
+            
+            # For testing: use all available songs (repeat if needed to make pairs)
+            if len(all_songs) == 1:
+                # Special case: duplicate the single song to create a "tournament"
+                selected_songs = all_songs * 2  # Make 2 copies for testing
+                logger.info(f"Creating test session with 1 song duplicated")
+            elif len(all_songs) < 128:
+                # Use all available songs
+                selected_songs = all_songs.copy()
+                # Pad to even number if needed
+                if len(selected_songs) % 2 != 0:
+                    selected_songs.append(all_songs[0])  # Duplicate one song
+                logger.info(f"Creating session with {len(all_songs)} songs (padded to {len(selected_songs)})")
+            else:
+                # Normal case: randomly select 128 songs
+                selected_songs = random.sample(all_songs, 128)
+                logger.info(f"Creating normal session with 128 randomly selected songs")
+            
+            random.shuffle(selected_songs)
+            
+            # Create bracket structure
+            bracket_data = VotingSessionService.generate_bracket_structure(selected_songs)
+            if not bracket_data:
+                logger.error("Failed to generate bracket structure")
+                return None
+            
+            # Create voting session with database transaction
+            with transaction.atomic():
+                session = VotingSession.objects.create(
+                    user=user,
+                    session_key=session_key,
+                    bracket_data=bracket_data,
+                    current_round=1,
+                    current_match=1,
+                    status='ACTIVE'
+                )
+                logger.info(f"Created voting session {session.id} for user {user or 'anonymous'}")
+            
+            return session
+            
+        except Exception as e:
+            logger.error(f"Error creating voting session: {type(e).__name__}: {str(e)}")
+            return None
     
     @staticmethod
-    def generate_bracket_structure(songs: List[Song]) -> Dict[str, Any]:
+    def generate_bracket_structure(songs: List[Song]) -> Optional[Dict[str, Any]]:
         """
         Generate bracket structure for any number of songs.
+        Returns None if unable to generate bracket.
         """
-        bracket = {}
-        current_songs = [{'id': str(song.id), 'title': song.title, 'artist': song.artist} for song in songs]
-        round_num = 1
-        
-        while len(current_songs) > 1:
-            matches = []
-            next_round_songs = []
+        try:
+            if not songs:
+                logger.error("Cannot generate bracket: No songs provided")
+                return None
             
-            # Create matches for current round
-            for i in range(0, len(current_songs), 2):
-                if i + 1 < len(current_songs):
-                    match = {
-                        'match_number': len(matches) + 1,
-                        'song1': current_songs[i],
-                        'song2': current_songs[i + 1],
-                        'winner': None,
-                        'completed': False
+            bracket = {}
+            current_songs = []
+            
+            # Safely extract song data
+            for song in songs:
+                try:
+                    song_data = {
+                        'id': str(song.id) if song.id else '',
+                        'title': song.title or 'Unknown Song',
+                        'artist': song.artist or ''
                     }
-                    matches.append(match)
-                    # Placeholder for winner (will be filled during voting)
-                    next_round_songs.append({'placeholder': True, 'from_match': len(matches)})
-                else:
-                    # Odd number of songs, this one advances automatically
-                    next_round_songs.append(current_songs[i])
+                    current_songs.append(song_data)
+                except Exception as e:
+                    logger.warning(f"Error processing song {song}: {e}")
+                    continue
             
-            bracket[f'round_{round_num}'] = matches
-            current_songs = next_round_songs
-            round_num += 1
-        
-        return bracket
+            if not current_songs:
+                logger.error("No valid songs after processing")
+                return None
+            
+            round_num = 1
+            max_rounds = 10  # Safety limit to prevent infinite loops
+            
+            while len(current_songs) > 1 and round_num <= max_rounds:
+                matches = []
+                next_round_songs = []
+                
+                # Create matches for current round
+                for i in range(0, len(current_songs), 2):
+                    if i + 1 < len(current_songs):
+                        match = {
+                            'match_number': len(matches) + 1,
+                            'song1': current_songs[i],
+                            'song2': current_songs[i + 1],
+                            'winner': None,
+                            'completed': False
+                        }
+                        matches.append(match)
+                        # Placeholder for winner (will be filled during voting)
+                        next_round_songs.append({'placeholder': True, 'from_match': len(matches)})
+                    else:
+                        # Odd number of songs, this one advances automatically
+                        next_round_songs.append(current_songs[i])
+                
+                if not matches:
+                    logger.error(f"No matches created for round {round_num}")
+                    break
+                
+                bracket[f'round_{round_num}'] = matches
+                current_songs = next_round_songs
+                round_num += 1
+            
+            if round_num > max_rounds:
+                logger.error("Bracket generation exceeded maximum rounds")
+                return None
+            
+            logger.info(f"Generated bracket with {round_num - 1} rounds")
+            return bracket
+            
+        except Exception as e:
+            logger.error(f"Error generating bracket structure: {type(e).__name__}: {str(e)}")
+            return None
     
     @staticmethod
-    def get_current_match(session: VotingSession) -> Dict[str, Any]:
+    def get_current_match(session: VotingSession) -> Optional[Dict[str, Any]]:
         """
         Get current match data for voting.
+        Returns None if unable to get match data.
         """
-        match_data = session.get_current_match_data()
-        if not match_data:
+        try:
+            if not session:
+                logger.error("No session provided to get_current_match")
+                return None
+            
+            if session.status != 'ACTIVE':
+                logger.info(f"Session {session.id} is not active (status: {session.status})")
+                return None
+            
+            match_data = session.get_current_match_data()
+            if not match_data:
+                logger.warning(f"No current match data for session {session.id}")
+                return None
+            
+            # Safely get Song objects
+            try:
+                song1_id = match_data.get('song1', {}).get('id')
+                song2_id = match_data.get('song2', {}).get('id')
+                
+                if not song1_id or not song2_id:
+                    logger.error(f"Invalid song IDs in match data: song1={song1_id}, song2={song2_id}")
+                    return None
+                
+                song1 = Song.objects.get(id=song1_id)
+                song2 = Song.objects.get(id=song2_id)
+                
+            except Song.DoesNotExist as e:
+                logger.error(f"Song not found: {e}")
+                return None
+            
+            # Calculate progress safely
+            try:
+                progress = VotingSessionService.calculate_progress(session)
+            except Exception as e:
+                logger.warning(f"Error calculating progress: {e}")
+                progress = {'completed_matches': 0, 'total_matches': 0, 'percentage': 0}
+            
+            return {
+                'session_id': str(session.id),
+                'round': session.current_round,
+                'round_name': session.get_round_name(),
+                'match': session.current_match,
+                'match_progress': session.get_match_progress(),
+                'song1': {
+                    'id': str(song1.id),
+                    'title': song1.title or 'Unknown Song',
+                    'artist': song1.artist or '',
+                    'audio_url': song1.audio_url or '',
+                    'background_image_url': song1.background_image_url or ''
+                },
+                'song2': {
+                    'id': str(song2.id),
+                    'title': song2.title or 'Unknown Song',
+                    'artist': song2.artist or '',
+                    'audio_url': song2.audio_url or '',
+                    'background_image_url': song2.background_image_url or ''
+                },
+                'total_rounds': len(session.bracket_data) if session.bracket_data else 0,
+                'progress': progress
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting current match: {type(e).__name__}: {str(e)}")
             return None
-        
-        # Get Song objects
-        song1 = Song.objects.get(id=match_data['song1']['id'])
-        song2 = Song.objects.get(id=match_data['song2']['id'])
-        
-        return {
-            'session_id': str(session.id),
-            'round': session.current_round,
-            'round_name': session.get_round_name(),
-            'match': session.current_match,
-            'match_progress': session.get_match_progress(),
-            'song1': {
-                'id': str(song1.id),
-                'title': song1.title,
-                'artist': song1.artist,
-                'audio_url': song1.audio_url,
-                'background_image_url': song1.background_image_url
-            },
-            'song2': {
-                'id': str(song2.id),
-                'title': song2.title,
-                'artist': song2.artist,
-                'audio_url': song2.audio_url,
-                'background_image_url': song2.background_image_url
-            },
-            'total_rounds': len(session.bracket_data),
-            'progress': VotingSessionService.calculate_progress(session)
-        }
     
     @staticmethod
     def cast_vote(session: VotingSession, chosen_song_id: str) -> bool:
         """
         Cast vote for a song and advance to next match.
+        Returns True if successful, False otherwise.
         """
         import time
-        from django.db import OperationalError
+        from django.db import OperationalError, IntegrityError
+        
+        if not session or not chosen_song_id:
+            logger.error("Invalid session or song ID provided to cast_vote")
+            return False
+        
+        if session.status != 'ACTIVE':
+            logger.error(f"Cannot cast vote for inactive session {session.id} (status: {session.status})")
+            return False
         
         # Retry mechanism for database locks
         for attempt in range(3):
             try:
-                # Get current match data
-                match_data = session.get_current_match_data()
-                if not match_data:
-                    print("No match data available")
-                    return False
+                with transaction.atomic():
+                    # Get current match data
+                    match_data = session.get_current_match_data()
+                    if not match_data:
+                        logger.error(f"No match data available for session {session.id}")
+                        return False
+                    
+                    # Validate song IDs exist in match data
+                    song1_id = match_data.get('song1', {}).get('id')
+                    song2_id = match_data.get('song2', {}).get('id')
+                    
+                    if not song1_id or not song2_id:
+                        logger.error(f"Invalid match data structure for session {session.id}")
+                        return False
+                    
+                    # Validate chosen song
+                    try:
+                        chosen_song = Song.objects.get(id=chosen_song_id)
+                        song1 = Song.objects.get(id=song1_id)
+                        song2 = Song.objects.get(id=song2_id)
+                    except Song.DoesNotExist as e:
+                        logger.error(f"Song not found: {e}")
+                        return False
+                    
+                    if chosen_song not in [song1, song2]:
+                        logger.error(f"Invalid song choice {chosen_song_id} for session {session.id}")
+                        return False
+                    
+                    # Check if match already exists (prevent duplicate votes)
+                    existing_match = Match.objects.filter(
+                        session=session,
+                        round_number=session.current_round,
+                        match_number=session.current_match
+                    ).first()
+                    
+                    if existing_match:
+                        logger.warning(f"Match already exists for session {session.id}, round {session.current_round}, match {session.current_match}")
+                        return False
+                    
+                    # Create match record
+                    match = Match.objects.create(
+                        session=session,
+                        round_number=session.current_round,
+                        match_number=session.current_match,
+                        song1=song1,
+                        song2=song2,
+                        winner=chosen_song
+                    )
+                    
+                    # Create vote record
+                    Vote.objects.create(
+                        match=match,
+                        session=session,
+                        chosen_song=chosen_song
+                    )
+                    
+                    # Update song statistics safely
+                    try:
+                        chosen_song.total_wins += 1
+                        chosen_song.total_picks += 1
+                        chosen_song.save()
+                        
+                        loser = song2 if chosen_song == song1 else song1
+                        loser.total_losses += 1
+                        loser.total_picks += 1
+                        loser.save()
+                    except Exception as e:
+                        logger.warning(f"Error updating song statistics: {e}")
+                        # Continue anyway as the vote was recorded
+                    
+                    # Update bracket data with winner
+                    try:
+                        round_key = f'round_{session.current_round}'
+                        if round_key in session.bracket_data and session.current_match <= len(session.bracket_data[round_key]):
+                            session.bracket_data[round_key][session.current_match - 1]['winner'] = {
+                                'id': str(chosen_song.id),
+                                'title': chosen_song.title or 'Unknown Song',
+                                'artist': chosen_song.artist or ''
+                            }
+                            session.bracket_data[round_key][session.current_match - 1]['completed'] = True
+                        else:
+                            logger.error(f"Invalid bracket structure for session {session.id}")
+                            return False
+                    except Exception as e:
+                        logger.error(f"Error updating bracket data: {e}")
+                        return False
+                    
+                    # Update next round if this round is complete
+                    try:
+                        VotingSessionService.update_next_round(session)
+                    except Exception as e:
+                        logger.warning(f"Error updating next round: {e}")
+                        # Continue anyway
+                    
+                    # Advance to next match
+                    try:
+                        session.advance_to_next_match()
+                    except Exception as e:
+                        logger.error(f"Error advancing to next match: {e}")
+                        return False
                 
-                # Validate chosen song
-                chosen_song = Song.objects.get(id=chosen_song_id)
-                song1 = Song.objects.get(id=match_data['song1']['id'])
-                song2 = Song.objects.get(id=match_data['song2']['id'])
-                
-                if chosen_song not in [song1, song2]:
-                    print(f"Invalid song choice: {chosen_song_id}")
-                    return False
-                
-                # Create match record
-                match = Match.objects.create(
-                    session=session,
-                    round_number=session.current_round,
-                    match_number=session.current_match,
-                    song1=song1,
-                    song2=song2,
-                    winner=chosen_song
-                )
-                
-                # Create vote record
-                Vote.objects.create(
-                    match=match,
-                    session=session,
-                    chosen_song=chosen_song
-                )
-                
-                # Update song statistics
-                chosen_song.total_wins += 1
-                chosen_song.total_picks += 1
-                chosen_song.save()
-                
-                loser = song2 if chosen_song == song1 else song1
-                loser.total_losses += 1
-                loser.total_picks += 1
-                loser.save()
-                
-                # Update bracket data with winner
-                round_key = f'round_{session.current_round}'
-                session.bracket_data[round_key][session.current_match - 1]['winner'] = {
-                    'id': str(chosen_song.id),
-                    'title': chosen_song.title,
-                    'artist': chosen_song.artist
-                }
-                session.bracket_data[round_key][session.current_match - 1]['completed'] = True
-                
-                # Update next round if this round is complete
-                VotingSessionService.update_next_round(session)
-                
-                # Advance to next match
-                session.advance_to_next_match()
-                
+                logger.info(f"Vote cast successfully for session {session.id}, song {chosen_song_id}")
                 return True
                 
+            except IntegrityError as e:
+                logger.error(f"Database integrity error in cast_vote: {e}")
+                return False
             except OperationalError as e:
-                if "database is locked" in str(e) and attempt < 2:
-                    print(f"Database locked, retrying attempt {attempt + 1}")
-                    time.sleep(0.1)  # Wait 100ms before retry
+                if "database is locked" in str(e).lower() and attempt < 2:
+                    logger.warning(f"Database locked, retrying attempt {attempt + 1}")
+                    time.sleep(0.1 * (attempt + 1))  # Exponential backoff
                     continue
                 else:
-                    print(f"Database error after {attempt + 1} attempts: {str(e)}")
+                    logger.error(f"Database error after {attempt + 1} attempts: {str(e)}")
                     return False
             except Exception as e:
-                print(f"Unexpected error in cast_vote: {type(e).__name__}: {str(e)}")
+                logger.error(f"Unexpected error in cast_vote (attempt {attempt + 1}): {type(e).__name__}: {str(e)}")
+                if attempt < 2:
+                    time.sleep(0.1)
+                    continue
                 return False
         
+        logger.error(f"Failed to cast vote after 3 attempts for session {session.id}")
         return False
     
     @staticmethod
@@ -241,23 +404,44 @@ class VotingSessionService:
         }
     
     @staticmethod
-    def get_or_create_session(user=None, session_key=None):
+    def get_or_create_session(user=None, session_key=None) -> Tuple[Optional[VotingSession], bool]:
         """
         Get existing active session or create new one.
+        Returns (session, is_existing) or (None, False) if error.
         """
-        # Try to find existing active session
-        if user:
-            existing_session = VotingSession.objects.filter(
-                user=user,
-                status='ACTIVE'
-            ).first()
-        else:
-            existing_session = VotingSession.objects.filter(
-                session_key=session_key,
-                status='ACTIVE'
-            ).first()
-        
-        if existing_session:
-            return existing_session, True  # existing=True
-        else:
-            return VotingSessionService.create_voting_session(user, session_key), False  # existing=False
+        try:
+            # Try to find existing active session
+            existing_session = None
+            
+            if user:
+                try:
+                    existing_session = VotingSession.objects.filter(
+                        user=user,
+                        status='ACTIVE'
+                    ).first()
+                except Exception as e:
+                    logger.warning(f"Error querying user sessions: {e}")
+            elif session_key:
+                try:
+                    existing_session = VotingSession.objects.filter(
+                        session_key=session_key,
+                        status='ACTIVE'
+                    ).first()
+                except Exception as e:
+                    logger.warning(f"Error querying anonymous sessions: {e}")
+            
+            if existing_session:
+                logger.info(f"Found existing session {existing_session.id}")
+                return existing_session, True  # existing=True
+            else:
+                # Create new session
+                new_session = VotingSessionService.create_voting_session(user, session_key)
+                if new_session:
+                    return new_session, False  # existing=False
+                else:
+                    logger.error("Failed to create new voting session")
+                    return None, False
+                    
+        except Exception as e:
+            logger.error(f"Error in get_or_create_session: {type(e).__name__}: {str(e)}")
+            return None, False

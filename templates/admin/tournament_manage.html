@@ -104,7 +104,7 @@
                                 <td>
                                     {{ session.get_match_progress }}
                                     <div class="progress mt-1" style="height: 5px;">
-                                        {% with progress=session.voting_sessions.first.calculate_progress %}
+                                        {% with progress=session.calculate_progress %}
                                         <div class="progress-bar" role="progressbar" style="width: {{ progress.percentage }}%"></div>
                                         {% endwith %}
                                     </div>
