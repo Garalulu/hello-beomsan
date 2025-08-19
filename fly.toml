@@ -29,7 +29,7 @@ console_command = '/code/manage.py shell'
   cpu_kind = 'shared'
   cpus = 1
 
-[mounts]
+[[mounts]]
   source = 'hello_beomsan_data'
   destination = '/data'
 
