@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Song Tournament{% endblock %}
+{% block title %}범제이맥스{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="text-center mb-5">
-            <h1 class="display-4"><i class="fas fa-music"></i> Song Tournament</h1>
+            <h1 class="display-4"><i class="fas fa-music"></i> 범제이맥스</h1>
             <p class="lead">Choose your favorite songs in head-to-head battles!</p>
             {% if error_message %}
                 <div class="alert alert-warning">
@@ -67,7 +67,7 @@
                 <div class="card border-info">
                     <div class="card-body text-center">
                         <h5><i class="fab fa-osu"></i> Login with osu!</h5>
-                        <p class="text-muted">Save your progress and compete with others!</p>
+                        <p class="text-muted">Save your progress and pick your best!</p>
                         <a href="{% url 'accounts:login' %}" class="btn btn-info">
                             <i class="fab fa-osu"></i> Login with osu!
                         </a>
