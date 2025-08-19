@@ -5,10 +5,16 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies
+# Install system dependencies including LiteFS requirements
 RUN apt-get update && apt-get install -y \
     build-essential \
+    ca-certificates \
+    fuse3 \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
+
+# Install LiteFS
+COPY --from=flyio/litefs:0.5 /usr/local/bin/litefs /usr/local/bin/litefs
 
 # Set work directory
 WORKDIR /code
@@ -26,5 +32,8 @@ RUN python manage.py collectstatic --noinput
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "hello_beomsan.wsgi:application"]
+# Copy LiteFS configuration
+COPY litefs.yml /etc/litefs.yml
+
+# LiteFS will manage the application startup
+ENTRYPOINT ["litefs", "mount"]

@@ -1,0 +1,28 @@
+# LiteFS configuration for Django application
+
+# Mount directory for LiteFS
+mount:
+  dir: "/litefs"
+
+# Data directory for the database files
+data:
+  dir: "/var/lib/litefs"
+
+# Lease configuration for Fly.io
+lease:
+  type: "consul"
+  advertise-url: "http://${FLY_ALLOC_ID}.vm.${FLY_APP_NAME}.internal:20202"
+  candidate: ${FLY_REGION == PRIMARY_REGION}
+  promote: true
+
+# Proxy configuration
+proxy:
+  addr: ":20202"
+  target: "localhost:8000"
+  db: "/litefs/db.sqlite3"
+
+# Execute Django application with gunicorn
+exec:
+  - cmd: "python manage.py migrate"
+  - cmd: "python manage.py promote_admin"
+  - cmd: "gunicorn --bind 0.0.0.0:8000 hello_beomsan.wsgi:application"
