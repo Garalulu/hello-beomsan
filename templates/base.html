@@ -111,11 +111,9 @@
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> {{ user.profile.osu_username|default:user.username }}
+                            <i class="fas fa-user"></i> {% if user.profile %}{{ user.profile.osu_username }}{% else %}{{ user.username }}{% endif %}
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="post" action="{% url 'accounts:logout' %}" style="margin: 0;">
                                     {% csrf_token %}
