@@ -15,16 +15,28 @@ A Django web application for song tournament voting system inspired by piku.co.k
 ## Tech Stack
 
 - **Framework**: Django 5.2.5
-- **Database**: SQLite with persistent volume storage
+- **Database**: SQLite with LiteFS distributed replication
 - **Authentication**: osu! OAuth 2.0
 - **Frontend**: Bootstrap 5 with custom CSS/JS
 - **File Storage**: Google Drive URLs
 - **Deployment**: Fly.io with Docker and GitHub Actions CI/CD
-- **Storage**: Persistent Fly.io volumes for database
+- **Distributed Storage**: LiteFS for SQLite replication and persistence
 
 ## Quick Start
 
 ### Local Development
+
+#### Quick Setup (Windows)
+```bash
+# Clone the repository
+git clone <repository-url>
+cd hello-beomsan
+
+# Run automated setup
+dev-setup.bat
+```
+
+#### Manual Setup (All Platforms)
 
 1. **Clone the repository**
    ```bash
@@ -35,36 +47,44 @@ A Django web application for song tournament voting system inspired by piku.co.k
 2. **Set up Python environment**
    ```bash
    # Using uv (recommended)
-   uv venv
+   uv venv .venv
    .venv/Scripts/activate  # Windows
    # or source .venv/bin/activate  # Linux/Mac
-   uv pip install -r requirements.txt
    
-   # Alternative: using pip
-   pip install -r requirements.txt
+   # Install dependencies
+   uv pip install -r requirements.txt -r requirements-dev.txt
    ```
 
 3. **Set up environment variables**
    ```bash
-   export OSU_CLIENT_ID="your_osu_client_id"
-   export OSU_CLIENT_SECRET="your_osu_client_secret"
-   export OSU_REDIRECT_URI="http://localhost:8000/auth/callback/"
+   # Copy example environment file
+   cp .env.example .env
+   
+   # Edit .env file with your osu! OAuth credentials
+   # Get them from: https://osu.ppy.sh/home/account/edit
    ```
 
-4. **Run migrations**
+4. **Run migrations and start server**
    ```bash
    python manage.py migrate
-   ```
-
-5. **Create superuser**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-6. **Start development server**
-   ```bash
    python manage.py runserver
    ```
+
+#### Development Commands
+
+Use the included `Makefile` for common tasks:
+
+```bash
+make help          # Show all available commands
+make dev           # Install development dependencies  
+make run           # Start development server
+make test          # Run tests
+make test-cov      # Run tests with coverage
+make format        # Format code with black and isort
+make lint          # Run linting
+make migrate       # Run database migrations
+make admin         # Promote admin user
+```
 
 ### Production Deployment (Fly.io)
 
@@ -77,12 +97,17 @@ The app uses **GitHub Actions** for automated deployment. Simply push to the `ma
    fly auth login
    ```
 
-2. **Create persistent volume for database**
+2. **Create LiteFS volume for distributed database**
    ```bash
-   fly volumes create hello_beomsan_data --size 1 --region nrt --app hello-beomsan --yes
+   fly volumes create litefs --size 10 --region nrt --app hello-beomsan --yes
    ```
 
-3. **Set up environment variables**
+3. **Attach Consul for lease management**
+   ```bash
+   fly consul attach --app hello-beomsan
+   ```
+
+4. **Set up environment variables**
    ```bash
    fly secrets set OSU_CLIENT_ID="your_osu_client_id"
    fly secrets set OSU_CLIENT_SECRET="your_osu_client_secret"
@@ -91,12 +116,12 @@ The app uses **GitHub Actions** for automated deployment. Simply push to the `ma
 
 #### Automatic Deployment
 
-The app automatically deploys via GitHub Actions when pushing to master. The deployment:
-- Builds Docker image
-- Runs database migrations
-- Promotes "Garalulu" to admin (if they exist)
-- Collects static files
-- Starts the server with persistent volume mounted
+The app automatically deploys via GitHub Actions when pushing to master. LiteFS handles:
+- **Distributed SQLite**: Automatic replication across regions
+- **Primary election**: Consul-based leader election
+- **Database migrations**: Run automatically on primary node
+- **Admin promotion**: "Garalulu" promoted to admin
+- **Static files**: Collected and served with WhiteNoise
 
 ## Configuration
 
@@ -128,6 +153,7 @@ hello-beomsan/
 │   ├── services.py     # Business logic with error handling
 │   ├── views.py        # Web views and API endpoints
 │   ├── admin.py        # Django admin configuration
+│   ├── file_handlers.py # File upload handlers (for future use)
 │   └── management/     # Custom Django commands
 ├── accounts/           # osu! OAuth integration
 │   ├── services.py     # OAuth service with error handling
@@ -136,11 +162,19 @@ hello-beomsan/
 ├── templates/          # HTML templates
 │   ├── main/          # Voting interface templates
 │   └── admin/         # Song management templates
-├── static/            # CSS, JS, images
 ├── .github/workflows/  # GitHub Actions CI/CD
-├── Dockerfile         # Docker configuration
-├── fly.toml          # Fly.io deployment config with volume mounts
-├── requirements.txt   # Python dependencies
+├── dev-setup.bat      # Windows development setup script
+├── dev-start.bat      # Windows development start script
+├── Dockerfile         # Production Docker configuration
+├── Dockerfile.dev     # Development Docker configuration
+├── docker-compose.yml # Local development with Docker
+├── fly.toml          # Fly.io deployment config with LiteFS
+├── litefs.yml        # LiteFS configuration for distributed SQLite
+├── Makefile          # Development commands
+├── pyproject.toml    # Modern Python project configuration
+├── requirements.txt   # Production dependencies
+├── requirements-dev.txt # Development dependencies
+├── .env.example      # Environment variables template
 ├── CLAUDE.md         # Development instructions for Claude Code
 └── README.md         # This file
 ```
@@ -159,11 +193,23 @@ hello-beomsan/
 
 ## Development Features
 
+- **Modern Python Setup**: pyproject.toml, uv package manager, development dependencies
+- **Code Quality**: Black formatting, isort imports, flake8 linting, pytest testing
+- **Development Tools**: Makefile commands, automated setup scripts, .env templates
 - **Comprehensive Error Handling**: Robust error handling across all components
 - **Logging**: Detailed logging for debugging and monitoring
 - **CSRF Protection**: Full CSRF protection on all forms and AJAX requests
 - **Session Management**: Secure session handling for anonymous and authenticated users
-- **Volume Persistence**: Database persists across deployments using Fly.io volumes
+- **LiteFS Distribution**: Distributed SQLite with automatic replication and failover
+
+## Production Features
+
+- **LiteFS**: Distributed SQLite database with multi-region replication
+- **Consul Integration**: Leader election and lease management
+- **GitHub Actions**: Automated CI/CD pipeline
+- **Docker**: Containerized deployment with optimized images
+- **WhiteNoise**: Static file serving without external CDN
+- **Error Monitoring**: Comprehensive logging and error tracking
 
 ## Contributing
 

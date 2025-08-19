@@ -9,17 +9,19 @@ if not exist .env (
     echo IMPORTANT: Edit .env file and add your osu! OAuth credentials!
     echo Get them from: https://osu.ppy.sh/home/account/edit
     echo.
+    echo Opening .env file for editing...
+    notepad .env
     pause
 )
 
 REM Install dependencies
 echo Installing Python dependencies...
 if exist .venv (
-    .venv\Scripts\activate.bat && uv pip install -r requirements.txt
+    call .venv\Scripts\activate.bat && uv pip install -r requirements.txt -r requirements-dev.txt
 ) else (
     echo Creating virtual environment...
-    python -m venv .venv
-    .venv\Scripts\activate.bat && uv pip install -r requirements.txt
+    uv venv .venv
+    call .venv\Scripts\activate.bat && uv pip install -r requirements.txt -r requirements-dev.txt
 )
 
 REM Run migrations
