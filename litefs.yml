@@ -28,4 +28,4 @@ proxy:
   db: "db.sqlite3"
 
 # Execute Django application with gunicorn
-exec: "sh -c 'python manage.py collectstatic --noinput && python manage.py migrate && python manage.py promote_admin && gunicorn --bind 0.0.0.0:8000 hello_beomsan.wsgi:application'"
+exec: "sh -c 'python manage.py collectstatic --noinput && python manage.py makemigrations && python manage.py migrate && gunicorn --bind 0.0.0.0:8000 hello_beomsan.wsgi:application'"
