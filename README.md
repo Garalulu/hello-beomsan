@@ -15,11 +15,12 @@ A Django web application for song tournament voting system inspired by piku.co.k
 ## Tech Stack
 
 - **Framework**: Django 5.2.5
-- **Database**: SQLite (development), PostgreSQL (production ready)
+- **Database**: SQLite with persistent volume storage
 - **Authentication**: osu! OAuth 2.0
 - **Frontend**: Bootstrap 5 with custom CSS/JS
 - **File Storage**: Google Drive URLs
-- **Deployment**: Fly.io with Docker
+- **Deployment**: Fly.io with Docker and GitHub Actions CI/CD
+- **Storage**: Persistent Fly.io volumes for database
 
 ## Quick Start
 
@@ -31,8 +32,15 @@ A Django web application for song tournament voting system inspired by piku.co.k
    cd hello-beomsan
    ```
 
-2. **Install dependencies**
+2. **Set up Python environment**
    ```bash
+   # Using uv (recommended)
+   uv venv
+   .venv/Scripts/activate  # Windows
+   # or source .venv/bin/activate  # Linux/Mac
+   uv pip install -r requirements.txt
+   
+   # Alternative: using pip
    pip install -r requirements.txt
    ```
 
@@ -60,20 +68,35 @@ A Django web application for song tournament voting system inspired by piku.co.k
 
 ### Production Deployment (Fly.io)
 
+The app uses **GitHub Actions** for automated deployment. Simply push to the `master` branch to trigger deployment.
+
+#### Manual Setup (one-time)
+
 1. **Install Fly CLI and authenticate**
    ```bash
    fly auth login
    ```
 
-2. **Deploy**
+2. **Create persistent volume for database**
    ```bash
-   fly deploy
+   fly volumes create hello_beomsan_data --size 1 --region nrt --app hello-beomsan --yes
    ```
 
-The app will automatically:
-- Run database migrations
-- Promote "Garalulu" to admin (if they exist)
-- Start the server
+3. **Set up environment variables**
+   ```bash
+   fly secrets set OSU_CLIENT_ID="your_osu_client_id"
+   fly secrets set OSU_CLIENT_SECRET="your_osu_client_secret"
+   fly secrets set OSU_REDIRECT_URI="https://your-app.fly.dev/auth/callback/"
+   ```
+
+#### Automatic Deployment
+
+The app automatically deploys via GitHub Actions when pushing to master. The deployment:
+- Builds Docker image
+- Runs database migrations
+- Promotes "Garalulu" to admin (if they exist)
+- Collects static files
+- Starts the server with persistent volume mounted
 
 ## Configuration
 
@@ -102,17 +125,24 @@ For audio/image files:
 hello-beomsan/
 ├── tournament/          # Main app for voting logic
 │   ├── models.py       # Song, VotingSession, Match, Vote models
-│   ├── services.py     # Business logic for tournaments
+│   ├── services.py     # Business logic with error handling
 │   ├── views.py        # Web views and API endpoints
+│   ├── admin.py        # Django admin configuration
 │   └── management/     # Custom Django commands
 ├── accounts/           # osu! OAuth integration
+│   ├── services.py     # OAuth service with error handling
+│   ├── views.py        # Authentication views
+│   └── urls.py         # Auth URL patterns
 ├── templates/          # HTML templates
 │   ├── main/          # Voting interface templates
 │   └── admin/         # Song management templates
 ├── static/            # CSS, JS, images
+├── .github/workflows/  # GitHub Actions CI/CD
 ├── Dockerfile         # Docker configuration
-├── fly.toml          # Fly.io deployment config
-└── requirements.txt   # Python dependencies
+├── fly.toml          # Fly.io deployment config with volume mounts
+├── requirements.txt   # Python dependencies
+├── CLAUDE.md         # Development instructions for Claude Code
+└── README.md         # This file
 ```
 
 ## Usage
@@ -121,7 +151,19 @@ hello-beomsan/
 2. **Voting**: Listen to two songs, choose your favorite
 3. **Progress**: Automatic saving for logged-in users
 4. **Statistics**: View song performance metrics
-5. **Admin**: Add/manage songs (staff users only)
+5. **Admin Features** (staff users only):
+   - Add/edit/delete songs
+   - View active tournament sessions
+   - Tournament history and statistics
+   - User management
+
+## Development Features
+
+- **Comprehensive Error Handling**: Robust error handling across all components
+- **Logging**: Detailed logging for debugging and monitoring
+- **CSRF Protection**: Full CSRF protection on all forms and AJAX requests
+- **Session Management**: Secure session handling for anonymous and authenticated users
+- **Volume Persistence**: Database persists across deployments using Fly.io volumes
 
 ## Contributing
 
