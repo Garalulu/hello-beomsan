@@ -13,6 +13,9 @@ lease:
   type: "consul"
   advertise-url: "http://${HOSTNAME}:20202"
   candidate: ${FLY_REGION == PRIMARY_REGION}
+  consul:
+    url: "${FLY_CONSUL_URL}"
+    key: "litefs/${FLY_APP_NAME}"
 
 # HTTP server for LiteFS management
 http:
