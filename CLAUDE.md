@@ -8,12 +8,92 @@ This is a Django 5.2.5 web application for a song tournament voting system inspi
 
 ## Architecture
 
-- **Framework**: Django 5.2.5 with two main apps: `tournament` and `accounts`
+- **Framework**: Django 5.2.5 with modern project structure
 - **Database**: SQLite (db.sqlite3) for local development
 - **Authentication**: osu! OAuth 2.0 integration
 - **File Storage**: Google Drive URLs for audio and background images
 - **Frontend**: Bootstrap 5 with custom CSS and JavaScript
 - **WSGI Server**: Gunicorn for production deployment
+
+## 🚧 CURRENT PROJECT REORGANIZATION STATUS
+
+**Status**: IN PROGRESS - Modern Django Structure Implementation
+
+### Completed:
+1. ✅ Created modern directory structure:
+   - `apps/` - All Django applications
+   - `config/` - Configuration files and settings
+   - `core/` - Business logic and services
+   - `static/` - Static files
+   - `templates/` - Template files
+   - `tests/` - Centralized testing
+   - `requirements/` - Environment-specific requirements
+
+2. ✅ Environment-specific settings structure:
+   - `config/settings/base.py` - Common settings
+   - `config/settings/development.py` - Development settings
+   - `config/settings/production.py` - Production settings
+   - `config/settings/testing.py` - Test settings
+
+3. ✅ Moved apps to new structure:
+   - `apps/tournament/` - Tournament logic
+   - `apps/accounts/` - Authentication & user management
+
+4. ✅ Updated configuration files:
+   - `config/wsgi.py` - WSGI application
+   - `config/asgi.py` - ASGI application
+   - `config/urls.py` - Root URL configuration
+   - `manage.py` - Management commands
+
+5. ✅ Started core services layer:
+   - `core/services/tournament_service.py` - Tournament business logic
+
+### Next Steps (TODO):
+6. ⏳ Move remaining services to core layer
+7. ⏳ Update all import statements in views and models
+8. ⏳ Reorganize templates with component-based structure
+9. ⏳ Create requirements structure (dev/prod/test)
+10. ⏳ Update all imports throughout the codebase
+11. ⏳ Test the reorganized structure
+12. ⏳ Update deployment configurations
+
+### New Project Structure:
+```
+hello_beomsan/
+├── apps/                          # Django applications
+│   ├── accounts/                  # Authentication & user management
+│   └── tournament/                # Tournament logic
+├── config/                        # Configuration files
+│   ├── settings/                  # Environment-specific settings
+│   │   ├── base.py               # Common settings
+│   │   ├── development.py        # Development settings
+│   │   ├── production.py         # Production settings
+│   │   └── testing.py            # Test settings
+│   ├── urls.py                   # Root URL configuration
+│   ├── wsgi.py                   # WSGI application
+│   └── asgi.py                   # ASGI application
+├── core/                          # Business logic & services
+│   ├── services/                  # Business logic services
+│   │   └── tournament_service.py  # Tournament operations
+│   ├── utils/                     # Utility functions
+│   └── exceptions.py              # Custom exceptions
+├── static/                        # Static files
+├── templates/                     # Templates (to be reorganized)
+├── tests/                         # Centralized testing
+├── requirements/                  # Environment-specific requirements
+└── manage.py                      # Django management
+```
+
+### Updated Settings Usage:
+- Development: `DJANGO_SETTINGS_MODULE=config.settings.development`
+- Production: `DJANGO_SETTINGS_MODULE=config.settings.production`
+- Testing: `DJANGO_SETTINGS_MODULE=config.settings.testing`
+
+### Important Notes:
+- All imports need to be updated from old structure to new structure
+- Services moved from `apps.tournament.services` to `core.services.tournament_service`
+- Apps now use `apps.` prefix in imports and INSTALLED_APPS
+- Configuration now uses `config.` prefix instead of `hello_beomsan.`
 
 ## Core Models
 

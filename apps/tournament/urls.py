@@ -17,6 +17,7 @@ urlpatterns = [
     
     # Tournament management
     path('admin/tournaments/', views.tournament_manage, name='tournament_manage'),
+    path('admin/tournaments/ajax/', views.tournament_manage_ajax, name='tournament_manage_ajax'),
     path('admin/tournaments/history/', views.tournament_history, name='tournament_history'),
     path('admin/session/<uuid:session_id>/', views.session_detail, name='session_detail'),
     path('admin/session/<uuid:session_id>/ajax/', views.session_detail_ajax, name='session_detail_ajax'),

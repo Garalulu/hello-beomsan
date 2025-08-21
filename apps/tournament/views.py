@@ -9,6 +9,8 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.db import transaction, IntegrityError
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.utils.html import escape
 from .models import Song, VotingSession, Match, Vote
 from .services import VotingSessionService
 import json
@@ -16,6 +18,77 @@ import logging
 import csv
 import io
 import re
+
+# Security validation functions
+def validate_url(url):
+    """Validate URL format and allowed domains"""
+    if not url:
+        return True  # Allow empty URLs
+    
+    # Basic URL format validation
+    url_pattern = re.compile(
+        r'^https?://'  # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'localhost|'  # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+        r'(?::\d+)?'  # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    
+    if not url_pattern.match(url):
+        return False
+    
+    # Allow specific domains for Google Drive and osu!
+    allowed_domains = [
+        'drive.google.com',
+        'docs.google.com', 
+        'osu.ppy.sh',
+        'localhost',
+        '127.0.0.1'
+    ]
+    
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    domain = parsed.netloc.split(':')[0]  # Remove port if present
+    
+    return any(domain.endswith(allowed) for allowed in allowed_domains)
+
+def sanitize_input(text, max_length=200):
+    """Sanitize text input"""
+    if not text:
+        return ''
+    return escape(str(text).strip())[:max_length]
+
+def get_client_ip(request):
+    """Get client IP address"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+def rate_limit(max_requests=60, window=60):
+    """Simple rate limiting decorator"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            client_ip = get_client_ip(request)
+            cache_key = f'rate_limit:{client_ip}:{view_func.__name__}'
+            
+            # Get current request count
+            requests = cache.get(cache_key, 0)
+            
+            if requests >= max_requests:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Rate limit exceeded. Please try again later.'
+                }, status=429)
+            
+            # Increment counter
+            cache.set(cache_key, requests + 1, window)
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +291,6 @@ def start_game(request):
                         )
                 
                 if session:
-                    messages.success(request, "Tournament started successfully!")
                     return redirect('vote')
                 else:
                     messages.error(request, "Unable to start tournament. Please try again.")
@@ -334,6 +406,7 @@ def vote(request):
 
 @require_POST
 @ensure_csrf_cookie
+@rate_limit(max_requests=30, window=60)  # Limit voting to prevent abuse
 def cast_vote(request):
     """Handle vote submission via AJAX"""
     try:
@@ -544,12 +617,22 @@ def upload_song(request):
     """Upload new song"""
     try:
         if request.method == 'POST':
-            title = request.POST.get('title', '').strip()
-            original_song = request.POST.get('original_song', '').strip()
+            # Sanitize and validate inputs
+            title = sanitize_input(request.POST.get('title', ''))
+            original_song = sanitize_input(request.POST.get('original_song', ''))
             audio_url = request.POST.get('audio_url', '').strip()
             background_image_url = request.POST.get('background_image_url', '').strip()
             
-            # Validation
+            # Security validation
+            if not validate_url(audio_url):
+                messages.error(request, "Invalid or unauthorized audio URL domain.")
+                return render(request, 'admin/upload_song.html')
+                
+            if not validate_url(background_image_url):
+                messages.error(request, "Invalid or unauthorized image URL domain.")
+                return render(request, 'admin/upload_song.html')
+            
+            # Basic validation
             if not title:
                 messages.error(request, "Song title is required.")
             elif not audio_url:
@@ -628,10 +711,20 @@ def edit_song(request, song_id):
     song = get_object_or_404(Song, id=song_id)
     
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        original_song = request.POST.get('original_song', '').strip()
+        # Sanitize and validate inputs
+        title = sanitize_input(request.POST.get('title', ''))
+        original_song = sanitize_input(request.POST.get('original_song', ''))
         audio_url = request.POST.get('audio_url', '').strip()
         background_image_url = request.POST.get('background_image_url', '').strip()
+        
+        # Security validation
+        if not validate_url(audio_url):
+            messages.error(request, "Invalid or unauthorized audio URL domain.")
+            return render(request, 'admin/edit_song.html', {'song': song})
+            
+        if not validate_url(background_image_url):
+            messages.error(request, "Invalid or unauthorized image URL domain.")
+            return render(request, 'admin/edit_song.html', {'song': song})
         
         if title and audio_url:
             # Check for duplicates only if title or original_song changed
@@ -706,12 +799,16 @@ def delete_song(request, song_id):
 @ensure_csrf_cookie
 def tournament_manage(request):
     """Tournament management overview"""
+    # Force fresh data from database
+    from django.db import connection
+    connection.ensure_connection()
+    
     # Combine active and abandoned sessions in one query
     active_abandoned_sessions = VotingSession.objects.filter(
         status__in=['ACTIVE', 'ABANDONED']
-    ).order_by('-updated_at')
+    ).select_related('user__profile').order_by('-updated_at')
     
-    completed_sessions = VotingSession.objects.filter(status='COMPLETED').order_by('-updated_at')[:10]  # Latest 10
+    completed_sessions = VotingSession.objects.filter(status='COMPLETED').select_related('user__profile').order_by('-updated_at')[:10]  # Latest 10
     total_songs = Song.objects.count()
     
     return render(request, 'admin/tournament_manage.html', {
@@ -724,6 +821,68 @@ def tournament_manage(request):
             'total_abandoned': VotingSession.objects.filter(status='ABANDONED').count(),
         }
     })
+
+
+@staff_member_required
+def tournament_manage_ajax(request):
+    """AJAX endpoint for tournament manage page updates"""
+    try:
+        # Force fresh data from database - use same approach as session_detail_ajax
+        from django.db import transaction
+        
+        with transaction.atomic():
+            # Get fresh sessions data with select_for_update to force fresh read
+            active_abandoned_sessions = VotingSession.objects.filter(
+                status__in=['ACTIVE', 'ABANDONED']
+            ).select_related('user__profile').order_by('-updated_at')
+            
+            completed_sessions = VotingSession.objects.filter(
+                status='COMPLETED'
+            ).select_related('user__profile').order_by('-updated_at')[:10]
+            
+            # Force individual refresh for each session  
+            for session in active_abandoned_sessions:
+                session.refresh_from_db()
+        
+        # Build sessions data
+        def build_session_data(sessions):
+            data = []
+            for session in sessions:
+                # Force refresh each session before building data
+                session.refresh_from_db()
+                data.append({
+                    'id': str(session.id),
+                    'status': session.status,
+                    'user_display': session.user.username if session.user else f"Anonymous ({session.session_key[:8]}...)",
+                    'osu_username': session.user.profile.osu_username if session.user and hasattr(session.user, 'profile') and session.user.profile else None,
+                    'round_name': session.get_round_name(),
+                    'match_progress': session.get_match_progress(),
+                    'created_at': session.created_at.strftime('%b %d, %Y %H:%M'),
+                    'updated_at': session.updated_at.strftime('%b %d, %Y %H:%M'),
+                })
+            return data
+        
+        response = JsonResponse({
+            'success': True,
+            'active_abandoned_sessions': build_session_data(active_abandoned_sessions),
+            'completed_sessions': build_session_data(completed_sessions),
+            'stats': {
+                'total_active': VotingSession.objects.filter(status='ACTIVE').count(),
+                'total_completed': VotingSession.objects.filter(status='COMPLETED').count(),
+                'total_abandoned': VotingSession.objects.filter(status='ABANDONED').count(),
+            }
+        })
+        
+        # Add headers to prevent caching
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in tournament_manage_ajax: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @staff_member_required
@@ -789,10 +948,15 @@ def session_detail(request, session_id):
 def session_detail_ajax(request, session_id):
     """AJAX endpoint for real-time session updates"""
     try:
-        # Force refresh from database to get latest data
-        session = get_object_or_404(VotingSession, id=session_id)
-        session.refresh_from_db()
-        matches = Match.objects.filter(session=session).select_related('song1', 'song2', 'winner').order_by('round_number', 'match_number')
+        # Force fresh query from database - no caching
+        from django.db import transaction
+        
+        # Use atomic transaction to ensure we get the latest data
+        with transaction.atomic():
+            # Get fresh data from database - use select_for_update to force fresh read
+            session = VotingSession.objects.select_for_update(nowait=True).get(id=session_id)
+            matches = Match.objects.filter(session=session).select_related('song1', 'song2', 'winner').order_by('round_number', 'match_number')
+            
         
         # Build matches data
         matches_data = []
@@ -826,7 +990,7 @@ def session_detail_ajax(request, session_id):
             except Exception:
                 pass
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'session': {
                 'id': str(session.id),
@@ -841,6 +1005,13 @@ def session_detail_ajax(request, session_id):
             'winner_song': winner_song,
             'total_matches': len(matches_data)
         })
+        
+        # Add headers to prevent caching
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error in session_detail_ajax: {e}")

@@ -219,10 +219,8 @@ let isPageVisible = true;
 document.addEventListener('visibilitychange', function() {
     isPageVisible = !document.hidden;
     if (isPageVisible) {
-        console.log('👁️ Page visible - resuming updates');
         startRealTimeUpdates();
     } else {
-        console.log('👀 Page hidden - pausing updates');
         stopRealTimeUpdates();
     }
 });
@@ -235,7 +233,6 @@ function startRealTimeUpdates() {
     
     // Update every 3 seconds
     updateInterval = setInterval(checkForUpdates, 3000);
-    console.log('🔄 Real-time updates started');
 }
 
 function stopRealTimeUpdates() {
@@ -243,15 +240,14 @@ function stopRealTimeUpdates() {
         clearInterval(updateInterval);
         updateInterval = null;
     }
-    console.log('⏹️ Real-time updates stopped');
 }
 
 async function checkForUpdates() {
     if (!isPageVisible) return;
     
     try {
-        console.log('🔄 Checking for updates...');
-        const response = await fetch('{% url "session_detail_ajax" session.id %}', {
+        const url = '{% url "session_detail_ajax" session.id %}' + '?t=' + Date.now();
+        const response = await fetch(url, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRFToken': '{{ csrf_token }}'
@@ -261,10 +257,8 @@ async function checkForUpdates() {
         if (!response.ok) throw new Error('Network response was not ok');
         
         const data = await response.json();
-        console.log('📡 AJAX response:', data);
         
         if (!data.success) {
-            console.warn('❌ Update failed:', data.error);
             return;
         }
         
@@ -274,14 +268,7 @@ async function checkForUpdates() {
             data.total_matches !== sessionData.total_matches
         );
         
-        if (hasUpdates) {
-            console.log('🆕 Updates detected:', {
-                old_matches: sessionData.total_matches,
-                new_matches: data.total_matches,
-                old_updated: sessionData.last_updated,
-                new_updated: data.session.updated_at
-            });
-            
+        if (hasUpdates) {            
             updateSessionInfo(data.session);
             updateMatchHistory(data.matches);
             updateWinnerInfo(data.winner_song);
@@ -296,7 +283,7 @@ async function checkForUpdates() {
         }
         
     } catch (error) {
-        console.error('❌ Error checking for updates:', error);
+        console.error('Error checking for updates:', error);
     }
 }
 
@@ -323,7 +310,6 @@ function updateSessionInfo(session) {
 function updateMatchHistory(matches) {
     const matchHistoryContainer = document.getElementById('match-history-container');
     if (!matchHistoryContainer) {
-        console.error('❌ Match history container not found');
         return;
     }
     
@@ -459,7 +445,6 @@ function testAudio(audioUrl) {
 
 // Start real-time updates when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 Session detail page loaded - starting real-time updates');
     startRealTimeUpdates();
 });
 

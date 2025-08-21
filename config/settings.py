@@ -24,11 +24,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-elid%^9g#_41bgb289h@3f)e7nsluvzyy6_04f48h=y!6c2gdo'
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'  # Fresh deployment with volume
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-elid%^9g#_41bgb289h@3f)e7nsluvzyy6_04f48h=y!6c2gdo')
+
+# Raise error if no secret key is set in production
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    raise ValueError("SECRET_KEY must be set in production environment!")
 
 APP_NAME = os.environ.get("FLY_APP_NAME")
 if APP_NAME:
@@ -40,6 +44,32 @@ else:
 CSRF_TRUSTED_ORIGINS = []
 if APP_NAME:
     CSRF_TRUSTED_ORIGINS = [f"https://{APP_NAME}.fly.dev"]
+
+# Security settings for production
+if not DEBUG:
+    # HTTPS/SSL Security
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # HSTS (HTTP Strict Transport Security)
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Cookie Security
+    SECURE_COOKIES = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Strict'
+    CSRF_COOKIE_SAMESITE = 'Strict'
+    
+    # Content Security and Headers
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 
 # Application definition
@@ -203,9 +233,22 @@ CORS_ALLOWED_ORIGINS = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/code/media/')
 
-# File upload settings
-FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+# File upload settings - Security hardened
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB (reduced for security)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+
+# Limit allowed file extensions for uploads
+ALLOWED_UPLOAD_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.m4a', '.jpg', '.jpeg', '.png', '.gif', '.webp']
+
+# Media file security
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/code/media/')
+
+# Additional upload security
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000  # Prevent form bombing
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 
 # Logging configuration
 LOGGING = {
@@ -267,6 +310,29 @@ if not os.path.exists(log_dir):
         pass  # Directory creation failed, logging will use console only
 
 # Login/Logout URLs
+# Authentication & Session Security
 LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# Session security
+SESSION_COOKIE_AGE = 3600 * 24 * 7  # 1 week
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Password requirements (enhanced)
+AUTH_PASSWORD_VALIDATORS.extend([
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 12}  # Stronger minimum length
+    }
+])
+
+# Content Security Policy (CSP) for modern browsers
+CSP_DEFAULT_SRC = "'self'"
+CSP_SCRIPT_SRC = "'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://drive.google.com https://accounts.google.com"
+CSP_STYLE_SRC = "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com"
+CSP_IMG_SRC = "'self' data: https: http:"
+CSP_FONT_SRC = "'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net"
+CSP_FRAME_SRC = "'self' https://drive.google.com https://docs.google.com"
+CSP_CONNECT_SRC = "'self'"
