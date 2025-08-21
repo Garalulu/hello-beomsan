@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-12 col-lg-8">
         <div class="card">
             <div class="card-header">
                 <h4><i class="fas fa-edit"></i> Edit Song</h4>
@@ -30,9 +30,9 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="artist" class="form-label">Artist</label>
-                        <input type="text" class="form-control" id="artist" name="artist" 
-                               value="{{ song.artist }}">
+                        <label for="original_song" class="form-label">Original Song</label>
+                        <input type="text" class="form-control" id="original_song" name="original_song" 
+                               value="{{ song.original_song }}" placeholder="Name of the original song this is remixed from">
                     </div>
                     
                     <div class="mb-3">
@@ -40,11 +40,11 @@
                         <input type="url" class="form-control" id="audio_url" name="audio_url" 
                                value="{{ song.audio_url }}" required>
                         <div class="form-text">
-                            Google Drive: https://drive.google.com/uc?export=download&id=FILE_ID
+                            <span class="d-none d-sm-inline">Google Drive: </span><code class="text-break">https://drive.google.com/uc?export=download&id=FILE_ID</code>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-primary mt-1" 
                                 onclick="testAudioUrl()">
-                            <i class="fas fa-play"></i> Test Audio
+                            <i class="fas fa-play"></i> <span class="d-none d-sm-inline">Test Audio</span><span class="d-sm-none">Test</span>
                         </button>
                     </div>
                     
@@ -53,11 +53,11 @@
                         <input type="url" class="form-control" id="background_image_url" name="background_image_url" 
                                value="{{ song.background_image_url }}">
                         <div class="form-text">
-                            Google Drive: https://drive.google.com/uc?export=view&id=FILE_ID
+                            <span class="d-none d-sm-inline">Google Drive: </span><code class="text-break">https://drive.google.com/uc?export=view&id=FILE_ID</code>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-primary mt-1" 
                                 onclick="previewImage()">
-                            <i class="fas fa-eye"></i> Preview Image
+                            <i class="fas fa-eye"></i> <span class="d-none d-sm-inline">Preview Image</span><span class="d-sm-none">Preview</span>
                         </button>
                     </div>
 
@@ -67,7 +67,7 @@
                             <h6>Current Statistics</h6>
                         </div>
                         <div class="card-body">
-                            <div class="row text-center">
+                            <div class="row text-center g-2">
                                 <div class="col-3">
                                     <div class="fw-bold text-success">{{ song.total_wins }}</div>
                                     <small class="text-muted">Wins</small>
@@ -88,12 +88,12 @@
                         </div>
                     </div>
                     
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{% url 'manage_songs' %}" class="btn btn-secondary me-md-2">
-                            <i class="fas fa-arrow-left"></i> Back to Manage
+                            <i class="fas fa-arrow-left"></i> <span class="d-none d-sm-inline">Back to Manage</span><span class="d-sm-none">Back</span>
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Update Song
+                            <i class="fas fa-save"></i> <span class="d-none d-sm-inline">Update Song</span><span class="d-sm-none">Update</span>
                         </button>
                     </div>
                 </form>

@@ -1,8 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models import F, Case, When, FloatField, Q
+from django.utils.functional import cached_property
 import uuid
-import json
 
 
 class SongManager(models.Manager):
@@ -35,7 +35,7 @@ class SongManager(models.Manager):
 class Song(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
-    artist = models.CharField(max_length=200, blank=True)
+    original_song = models.CharField(max_length=200, blank=True)
     audio_url = models.URLField(max_length=500)  # Google Drive direct download URL
     background_image_url = models.URLField(max_length=500, blank=True)  # Google Drive image URL
     
@@ -60,7 +60,7 @@ class Song(models.Model):
         ]
         
     def __str__(self):
-        return f"{self.title} - {self.artist}" if self.artist else self.title
+        return f"{self.title} - {self.original_song}" if self.original_song else self.title
     
     @property
     def win_rate(self):
@@ -118,40 +118,10 @@ class VotingSession(models.Model):
         user_str = self.user.username if self.user else f"Anonymous ({self.session_key})"
         return f"Session by {user_str} - Round {self.current_round}"
     
-    def get_round_name(self):
-        """Get human readable round name"""
-        if self.current_round == 1:
-            return "Final"
-        elif self.current_round == 2:
-            return "Semi-Final"
-        elif self.current_round == 3:
-            return "Quarter-Final"
-        elif self.current_round == 4:
-            return "Round of 16"
-        elif self.current_round == 5:
-            return "Round of 32"
-        elif self.current_round == 6:
-            return "Round of 64"
-        elif self.current_round == 7:
-            return "Round of 128"
-        else:
-            return f"Round {self.current_round}"
     
-    def get_match_progress(self):
-        """Get match progress string"""
-        if self.status == 'COMPLETED':
-            return "Tournament Complete"
-        elif self.status == 'ABANDONED':
-            return "Tournament Abandoned"
-        
-        round_key = f"round_{self.current_round}"
-        if round_key in self.bracket_data:
-            total_matches = len(self.bracket_data[round_key])
-            return f"Match {self.current_match}/{total_matches}"
-        return "No matches"
-    
-    def calculate_progress(self):
-        """Calculate overall tournament progress percentage"""
+    @cached_property
+    def progress_data(self):
+        """Calculate overall tournament progress percentage with caching"""
         if self.status == 'COMPLETED':
             return {'percentage': 100, 'matches_completed': 'All', 'matches_total': 'All'}
         
@@ -184,6 +154,10 @@ class VotingSession(models.Model):
             'matches_completed': completed_matches,
             'matches_total': total_matches
         }
+
+    def calculate_progress(self):
+        """Calculate overall tournament progress percentage (backward compatibility)"""
+        return self.progress_data
     
     def get_current_match_data(self):
         """Get current match songs from bracket data"""
@@ -238,11 +212,12 @@ class VotingSession(models.Model):
                 except Song.DoesNotExist:
                     pass
     
-    def get_round_name(self):
-        """Get proper tournament round name"""
+    @cached_property
+    def round_name_lookup(self):
+        """Cached lookup table for round names"""
         total_rounds = len(self.bracket_data)
         if total_rounds == 7:  # 128 song tournament
-            round_names = {
+            return {
                 1: "Round of 64",
                 2: "Round of 32", 
                 3: "Round of 16",
@@ -251,9 +226,11 @@ class VotingSession(models.Model):
                 6: "Finals",
                 7: "Grand Finals"
             }
-            return round_names.get(self.current_round, f"Round {self.current_round}")
-        else:
-            return f"Round {self.current_round}"
+        return {}
+
+    def get_round_name(self):
+        """Get proper tournament round name"""
+        return self.round_name_lookup.get(self.current_round, f"Round {self.current_round}")
     
     def get_match_progress(self):
         """Get current match progress (e.g., "2/64")"""

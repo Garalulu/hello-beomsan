@@ -5,6 +5,7 @@ Test script to verify error handling in various scenarios
 import os
 import sys
 import django
+import pytest
 
 # Add the project directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +21,7 @@ from tournament.models import Song, VotingSession
 from tournament.services import VotingSessionService
 from accounts.services import OsuOAuthService
 
+@pytest.mark.django_db
 def test_empty_database_scenario():
     """Test behavior when no songs exist"""
     print("\n=== Testing Empty Database Scenario ===")
@@ -37,6 +39,7 @@ def test_empty_database_scenario():
     except Exception as e:
         print(f"[PASS] Empty database handled with exception: {type(e).__name__}: {e}")
 
+@pytest.mark.django_db
 def test_invalid_song_data():
     """Test behavior with corrupted song data"""
     print("\n=== Testing Invalid Song Data ===")
@@ -91,6 +94,7 @@ def test_voting_with_missing_session():
     except Exception as e:
         print(f"[PASS] Voting with None session handled with exception: {type(e).__name__}: {e}")
 
+@pytest.mark.django_db
 def test_web_requests():
     """Test web interface error handling"""
     print("\n=== Testing Web Interface ===")

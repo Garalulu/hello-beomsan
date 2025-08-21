@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Songs from CSV{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Upload Songs from CSV</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Instructions -->
+                    <div class="alert alert-info">
+                        <h5>CSV Format Requirements:</h5>
+                        <ul class="mb-2">
+                            <li><strong>Required columns:</strong> title, audio_url</li>
+                            <li><strong>Optional columns:</strong> original_song, background_image_url</li>
+                        </ul>
+                        <p class="mb-2"><strong>Example CSV format:</strong></p>
+                        <div class="bg-light p-2 rounded">
+                        <code class="text-break">
+                            title,original_song,audio_url,background_image_url<br>
+                            "Remix Title 1","Original Song Name","https://drive.google.com/uc?export=download&id=FILE_ID","https://drive.google.com/uc?export=view&id=IMG_ID"<br>
+                            "Remix Title 2","Original Song 2","https://drive.google.com/uc?export=download&id=FILE_ID2",""
+                        </code>
+                        </div>
+                    </div>
+
+                    <!-- Upload Form -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">Select CSV File</label>
+                            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                            <div class="form-text">Choose a CSV file with song data to upload.</div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> <span class="d-none d-sm-inline">Upload CSV</span><span class="d-sm-none">Upload</span>
+                            </button>
+                            <a href="{% url 'manage_songs' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> <span class="d-none d-sm-inline">Back to Manage Songs</span><span class="d-sm-none">Back</span>
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Sample CSV Download -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Sample CSV Template</h5>
+                </div>
+                <div class="card-body">
+                    <p>Download a sample CSV template to get started:</p>
+                    <button class="btn btn-outline-primary btn-sm" onclick="downloadSampleCSV()">
+                        <i class="fas fa-download"></i> <span class="d-none d-sm-inline">Download Sample CSV</span><span class="d-sm-none">Download Sample</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function downloadSampleCSV() {
+    const csvContent = `title,original_song,audio_url,background_image_url
+"Sample Remix 1","Original Song Name 1","https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID","https://drive.google.com/uc?export=view&id=YOUR_IMAGE_FILE_ID"
+"Sample Remix 2","Original Song Name 2","https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID_2",""`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'songs_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

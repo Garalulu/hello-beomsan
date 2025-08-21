@@ -4,9 +4,9 @@ from .models import Song, VotingSession, Match, Vote, UserProfile
 
 @admin.register(Song)
 class SongAdmin(admin.ModelAdmin):
-    list_display = ['title', 'artist', 'total_wins', 'total_losses', 'total_picks', 'win_rate', 'created_at']
+    list_display = ['title', 'original_song', 'total_wins', 'total_losses', 'total_picks', 'win_rate', 'created_at']
     list_filter = ['created_at']
-    search_fields = ['title', 'artist']
+    search_fields = ['title', 'original_song']
     readonly_fields = ['id', 'total_wins', 'total_losses', 'total_picks', 'created_at', 'updated_at']
 
 

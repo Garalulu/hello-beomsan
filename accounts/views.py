@@ -2,7 +2,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.conf import settings
-from django.http import HttpResponseBadRequest
 from .services import OsuOAuthService
 import logging
 

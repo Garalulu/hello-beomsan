@@ -76,8 +76,8 @@
                     
                     <div class="col-md-5">
                         <h5 class="card-title mb-1">{{ song.title }}</h5>
-                        {% if song.artist %}
-                        <p class="text-muted mb-0">by {{ song.artist }}</p>
+                        {% if song.original_song %}
+                        <p class="text-muted mb-0">Original: {{ song.original_song }}</p>
                         {% endif %}
                     </div>
                     

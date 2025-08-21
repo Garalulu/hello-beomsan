@@ -45,7 +45,7 @@ class Command(BaseCommand):
             for row_num, row in enumerate(reader, start=2):
                 try:
                     title = row.get('title', '').strip()
-                    artist = row.get('artist', '').strip()
+                    original_song = row.get('original_song', '').strip()
                     audio_filename = row.get('audio_file', '').strip()
                     image_filename = row.get('background_image', '').strip()
                     
@@ -65,10 +65,10 @@ class Command(BaseCommand):
                     # Create or update song
                     song, created = Song.objects.get_or_create(
                         title=title,
-                        artist=artist,
+                        original_song=original_song,
                         defaults={
-                            'audio_file': audio_path,
-                            'background_image': image_path
+                            'audio_url': audio_path,
+                            'background_image_url': image_path
                         }
                     )
                     
@@ -77,8 +77,8 @@ class Command(BaseCommand):
                         self.stdout.write(f'Created: {song}')
                     else:
                         # Update existing song
-                        song.audio_file = audio_path
-                        song.background_image = image_path
+                        song.audio_url = audio_path
+                        song.background_image_url = image_path
                         song.save()
                         updated_count += 1
                         self.stdout.write(f'Updated: {song}')

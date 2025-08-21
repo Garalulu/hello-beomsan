@@ -99,7 +99,7 @@ class VotingSessionService:
                     song_data = {
                         'id': str(song.id) if song.id else '',
                         'title': song.title or 'Unknown Song',
-                        'artist': song.artist or ''
+                        'original_song': song.original_song or ''
                     }
                     current_songs.append(song_data)
                 except Exception as e:
@@ -205,14 +205,14 @@ class VotingSessionService:
                 'song1': {
                     'id': str(song1.id),
                     'title': song1.title or 'Unknown Song',
-                    'artist': song1.artist or '',
+                    'original_song': song1.original_song or '',
                     'audio_url': song1.audio_url or '',
                     'background_image_url': song1.background_image_url or ''
                 },
                 'song2': {
                     'id': str(song2.id),
                     'title': song2.title or 'Unknown Song',
-                    'artist': song2.artist or '',
+                    'original_song': song2.original_song or '',
                     'audio_url': song2.audio_url or '',
                     'background_image_url': song2.background_image_url or ''
                 },
@@ -259,14 +259,14 @@ class VotingSessionService:
                         logger.error(f"Invalid match data structure for session {session.id}")
                         return False
                     
-                    # Validate chosen song with single query
+                    # Validate chosen song with optimized single query
                     try:
-                        # Get all required songs in one query
-                        song_ids = [chosen_song_id, song1_id, song2_id]
-                        songs = {str(s.id): s for s in Song.objects.filter(id__in=song_ids)}
+                        # Get all required songs in one query (unique IDs only)
+                        unique_song_ids = list(set([chosen_song_id, song1_id, song2_id]))
+                        songs = {str(s.id): s for s in Song.objects.filter(id__in=unique_song_ids).only('id', 'title', 'original_song')}
                         
-                        if len(songs) != 3:
-                            logger.error(f"Not all songs found: expected 3, got {len(songs)}")
+                        if len(songs) != len(unique_song_ids):
+                            logger.error(f"Not all songs found: expected {len(unique_song_ids)}, got {len(songs)}")
                             return False
                         
                         chosen_song = songs[chosen_song_id]
@@ -319,6 +319,18 @@ class VotingSessionService:
                         loser.total_losses += 1
                         loser.total_picks += 1
                         loser.save()
+                        
+                        # Invalidate relevant caches when statistics change
+                        from django.core.cache import cache
+                        cache.delete_many([
+                            'home_stats_total_votes',
+                            'completed_tournaments_count'
+                        ])
+                        # Clear song stats cache for all pages and sorts
+                        cache_patterns = ['song_stats_*']
+                        for pattern in cache_patterns:
+                            cache.delete_pattern(pattern) if hasattr(cache, 'delete_pattern') else None
+                            
                     except Exception as e:
                         logger.warning(f"Error updating song statistics: {e}")
                         # Continue anyway as the vote was recorded
@@ -330,7 +342,7 @@ class VotingSessionService:
                             session.bracket_data[round_key][session.current_match - 1]['winner'] = {
                                 'id': str(chosen_song.id),
                                 'title': chosen_song.title or 'Unknown Song',
-                                'artist': chosen_song.artist or ''
+                                'original_song': chosen_song.original_song or ''
                             }
                             session.bracket_data[round_key][session.current_match - 1]['completed'] = True
                         else:
@@ -406,13 +418,30 @@ class VotingSessionService:
     @staticmethod
     def calculate_progress(session: VotingSession) -> Dict[str, Any]:
         """
-        Calculate voting progress percentage.
+        Calculate voting progress percentage with optimized JSON processing.
         """
+        # Use cached property if available
+        if hasattr(session, 'progress_data'):
+            cached_data = session.progress_data
+            return {
+                'completed_matches': cached_data['matches_completed'],
+                'total_matches': cached_data['matches_total'],
+                'percentage': cached_data['percentage'],
+                'current_round': session.current_round,
+                'total_rounds': len(session.bracket_data)
+            }
+        
+        # Fallback to original calculation
         total_matches = 0
         completed_matches = 0
         
-        for round_key, matches in session.bracket_data.items():
-            total_matches += len(matches)
+        # Optimize JSON processing by reducing iterations
+        bracket_items = session.bracket_data.items() if session.bracket_data else []
+        
+        for round_key, matches in bracket_items:
+            match_count = len(matches)
+            total_matches += match_count
+            # Use list comprehension for better performance
             completed_matches += sum(1 for match in matches if match.get('completed', False))
         
         percentage = (completed_matches / total_matches * 100) if total_matches > 0 else 0
@@ -422,7 +451,7 @@ class VotingSessionService:
             'total_matches': total_matches,
             'percentage': round(percentage, 1),
             'current_round': session.current_round,
-            'total_rounds': len(session.bracket_data)
+            'total_rounds': len(bracket_items)
         }
     
     @staticmethod

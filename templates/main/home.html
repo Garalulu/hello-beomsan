@@ -3,28 +3,29 @@
 {% block title %}범제이맥스{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="text-center mb-5">
-            <h1 class="display-4"><i class="fas fa-music"></i> 범제이맥스</h1>
-            <p class="lead">Choose your favorite songs in head-to-head battles!</p>
-            {% if error_message %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i> {{ error_message }}
-                </div>
-            {% else %}
-                {% if total_songs == 0 %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+            <div class="text-center mb-4 mb-md-5">
+                <h1 class="display-5 display-md-4"><i class="fas fa-music"></i> 범제이맥스</h1>
+                <p class="lead">Choose your favorite songs in head-to-head battles!</p>
+                {% if error_message %}
                     <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> No songs available yet. Please contact an administrator to add songs.
+                        <i class="fas fa-exclamation-triangle"></i> {{ error_message }}
                     </div>
                 {% else %}
-                    <p class="text-muted">{{ total_songs }} songs available • {{ total_votes }} votes cast</p>
+                    {% if total_songs == 0 %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> No songs available yet. Please contact an administrator to add songs.
+                        </div>
+                    {% else %}
+                        <p class="text-muted small">{{ total_songs }} songs available • {{ total_votes }} votes cast</p>
+                    {% endif %}
                 {% endif %}
-            {% endif %}
-        </div>
+            </div>
 
-        <div class="row justify-content-center">
-            <div class="col-md-6 mb-4">
+            <div class="row justify-content-center g-3 g-md-4">
+                <div class="col-12 col-sm-6 col-lg-5 col-xl-4">
                 <div class="card h-100">
                     <div class="card-body text-center">
                         <i class="fas fa-play-circle fa-3x text-primary mb-3"></i>

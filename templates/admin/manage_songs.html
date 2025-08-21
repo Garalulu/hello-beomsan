@@ -5,11 +5,16 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-cog"></i> Manage Songs</h1>
-            <a href="{% url 'upload_song' %}" class="btn btn-success">
-                <i class="fas fa-plus"></i> Add New Song
-            </a>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+            <h1 class="h3 h-md-1 mb-3 mb-md-0"><i class="fas fa-cog"></i> Manage Songs</h1>
+            <div class="btn-group-vertical btn-group-md-horizontal d-flex flex-column flex-md-row">
+                <a href="{% url 'upload_song' %}" class="btn btn-success mb-2 mb-md-0 me-md-2">
+                    <i class="fas fa-plus"></i> <span class="d-none d-sm-inline">Add New Song</span><span class="d-sm-none">Add Song</span>
+                </a>
+                <a href="{% url 'upload_csv' %}" class="btn btn-primary">
+                    <i class="fas fa-file-csv"></i> <span class="d-none d-sm-inline">Upload CSV</span><span class="d-sm-none">CSV</span>
+                </a>
+            </div>
         </div>
     </div>
 </div>
@@ -25,16 +30,28 @@
                 {% for song in page_obj %}
                 <div class="card mb-3">
                     <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
+                        <div class="row">
+                            <!-- Song Info -->
+                            <div class="col-12 col-lg-6 mb-3 mb-lg-0">
                                 <h6 class="card-title mb-1">{{ song.title }}</h6>
-                                {% if song.artist %}
-                                <p class="text-muted mb-0">by {{ song.artist }}</p>
+                                {% if song.original_song %}
+                                <p class="text-muted mb-1 small">Original: {{ song.original_song }}</p>
                                 {% endif %}
                                 <small class="text-muted">Added {{ song.created_at|date:"M d, Y" }}</small>
+                                
+                                <!-- File URLs for mobile -->
+                                <div class="mt-2 d-lg-none">
+                                    <small class="text-muted">
+                                        <div class="mb-1"><strong>Audio:</strong> <a href="{{ song.audio_url }}" target="_blank" class="text-decoration-none text-break">{{ song.audio_url|truncatechars:40 }}</a></div>
+                                        {% if song.background_image_url %}
+                                        <div><strong>Image:</strong> <a href="{{ song.background_image_url }}" target="_blank" class="text-decoration-none text-break">{{ song.background_image_url|truncatechars:40 }}</a></div>
+                                        {% endif %}
+                                    </small>
+                                </div>
                             </div>
                             
-                            <div class="col-md-4">
+                            <!-- Stats -->
+                            <div class="col-12 col-md-6 col-lg-3 mb-3 mb-md-0">
                                 <div class="row text-center">
                                     <div class="col-4">
                                         <div class="fw-bold text-success">{{ song.total_wins }}</div>
@@ -51,27 +68,28 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-2 text-end">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="testAudio('{{ song.audio_url }}')">
-                                        <i class="fas fa-play"></i> Test
+                            <!-- Actions -->
+                            <div class="col-12 col-md-6 col-lg-3">
+                                <div class="d-flex flex-wrap gap-1 justify-content-md-end">
+                                    <button type="button" class="btn btn-sm btn-outline-primary flex-fill flex-md-grow-0" onclick="testAudio('{{ song.audio_url }}')">
+                                        <i class="fas fa-play"></i> <span class="d-none d-sm-inline">Test</span>
                                     </button>
-                                    <a href="{% url 'edit_song' song.id %}" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-edit"></i> Edit
+                                    <a href="{% url 'edit_song' song.id %}" class="btn btn-sm btn-outline-success flex-fill flex-md-grow-0">
+                                        <i class="fas fa-edit"></i> <span class="d-none d-sm-inline">Edit</span>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSong('{{ song.id }}', '{{ song.title }}')">
-                                        <i class="fas fa-trash"></i> Delete
+                                    <button type="button" class="btn btn-sm btn-outline-danger flex-fill flex-md-grow-0" onclick="deleteSong('{{ song.id }}', '{{ song.title }}')">
+                                        <i class="fas fa-trash"></i> <span class="d-none d-sm-inline">Delete</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- File URLs for reference -->
-                        <div class="mt-2">
+                        <!-- File URLs for desktop -->
+                        <div class="mt-2 d-none d-lg-block">
                             <small class="text-muted">
-                                <strong>Audio:</strong> <a href="{{ song.audio_url }}" target="_blank" class="text-decoration-none">{{ song.audio_url|truncatechars:60 }}</a>
+                                <strong>Audio:</strong> <a href="{{ song.audio_url }}" target="_blank" class="text-decoration-none">{{ song.audio_url|truncatechars:80 }}</a>
                                 {% if song.background_image_url %}
-                                <br><strong>Image:</strong> <a href="{{ song.background_image_url }}" target="_blank" class="text-decoration-none">{{ song.background_image_url|truncatechars:60 }}</a>
+                                <br><strong>Image:</strong> <a href="{{ song.background_image_url }}" target="_blank" class="text-decoration-none">{{ song.background_image_url|truncatechars:80 }}</a>
                                 {% endif %}
                             </small>
                         </div>

@@ -9,6 +9,7 @@ urlpatterns = [
     
     # Admin paths
     path('admin/upload/', views.upload_song, name='upload_song'),
+    path('admin/upload-csv/', views.upload_csv, name='upload_csv'),
     path('admin/manage/', views.manage_songs, name='manage_songs'),
     path('admin/song/<uuid:song_id>/edit/', views.edit_song, name='edit_song'),
     path('admin/song/<uuid:song_id>/delete/', views.delete_song, name='delete_song'),
