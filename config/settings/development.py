@@ -33,7 +33,7 @@ CORS_ALLOWED_ORIGINS = [
 WHITENOISE_USE_FINDERS = True
 
 # Development-specific logging
-LOGGING = LOGGING_CONFIG.copy()
+LOGGING = LOGGING.copy()
 LOGGING['loggers']['django.db.backends'] = {
     'handlers': ['console'],
     'level': 'DEBUG' if os.environ.get('DJANGO_LOG_SQL', 'False').lower() == 'true' else 'INFO',
@@ -64,4 +64,4 @@ if os.environ.get('USE_DEBUG_TOOLBAR', 'False').lower() == 'true':
     except ImportError:
         pass
 
-print("🔧 Development settings loaded")
+print("Development settings loaded")

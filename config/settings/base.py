@@ -183,8 +183,8 @@ CSP_FONT_SRC = "'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net"
 CSP_FRAME_SRC = "'self' https://drive.google.com https://docs.google.com"
 CSP_CONNECT_SRC = "'self'"
 
-# Logging configuration base
-LOGGING_CONFIG = {
+# Logging configuration
+LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
