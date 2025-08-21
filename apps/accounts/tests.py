@@ -18,7 +18,7 @@ class OsuOAuthServiceTest(TestCase):
             'OSU_REDIRECT_URI': 'http://localhost:8000/auth/callback/'
         }
     
-    @patch('accounts.services.settings')
+    @patch('core.services.accounts_service.settings')
     def test_get_authorization_url(self, mock_settings):
         """Test getting OAuth authorization URL"""
         for key, value in self.mock_settings.items():
@@ -31,8 +31,8 @@ class OsuOAuthServiceTest(TestCase):
         self.assertIn('osu.ppy.sh', auth_url)
         self.assertIn('test_client_id', auth_url)
     
-    @patch('accounts.services.settings')
-    @patch('accounts.services.requests.post')
+    @patch('core.services.accounts_service.settings')
+    @patch('core.services.accounts_service.requests.post')
     def test_exchange_code_for_token(self, mock_post, mock_settings):
         """Test exchanging code for access token"""
         for key, value in self.mock_settings.items():
@@ -52,8 +52,8 @@ class OsuOAuthServiceTest(TestCase):
         self.assertIsNotNone(token_data)
         self.assertEqual(token_data['access_token'], 'test_access_token')
     
-    @patch('accounts.services.settings')  
-    @patch('accounts.services.requests.post')
+    @patch('core.services.accounts_service.settings')  
+    @patch('core.services.accounts_service.requests.post')
     def test_exchange_code_for_token_error(self, mock_post, mock_settings):
         """Test token exchange with error response"""
         for key, value in self.mock_settings.items():
@@ -69,7 +69,7 @@ class OsuOAuthServiceTest(TestCase):
             OsuOAuthService.exchange_code_for_token('invalid_code')
         self.assertIn('Invalid authorization code', str(cm.exception))
     
-    @patch('accounts.services.requests.get')
+    @patch('core.services.accounts_service.requests.get')
     def test_get_user_info(self, mock_get):
         """Test getting user info from osu! API"""
         # Mock successful user info response
@@ -88,7 +88,7 @@ class OsuOAuthServiceTest(TestCase):
         self.assertEqual(user_data['id'], 12345)
         self.assertEqual(user_data['username'], 'testuser')
     
-    @patch('accounts.services.requests.get')
+    @patch('core.services.accounts_service.requests.get')
     def test_get_user_info_error(self, mock_get):
         """Test getting user info with error response"""
         # Mock error response
@@ -142,7 +142,7 @@ class OsuOAuthServiceTest(TestCase):
         # Profile should be updated
         self.assertEqual(profile.osu_username, 'updated_username')
     
-    @patch('accounts.services.settings')
+    @patch('core.services.accounts_service.settings')
     def test_authenticate_user_success(self, mock_settings):
         """Test successful user authentication flow"""
         for key, value in self.mock_settings.items():
@@ -171,7 +171,7 @@ class OsuOAuthServiceTest(TestCase):
             self.assertIsNotNone(profile)
             self.assertEqual(user.username, 'testuser')  # Username is just the osu username unless there's a conflict
     
-    @patch('accounts.services.settings')
+    @patch('core.services.accounts_service.settings')
     def test_authenticate_user_failure(self, mock_settings):
         """Test user authentication failure"""
         for key, value in self.mock_settings.items():

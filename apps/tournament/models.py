@@ -18,7 +18,7 @@ class SongManager(models.Manager):
     
     def for_statistics(self):
         """Optimized queryset for statistics page with pre-cached tournament count"""
-        from .services import VotingSessionService
+        from core.services.tournament_service import VotingSessionService
         
         # Get cached completed tournaments count
         completed_count = VotingSessionService.get_cached_completed_tournaments_count()

@@ -7,10 +7,6 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Raise error if no secret key is set in production
-if SECRET_KEY.startswith('django-insecure-'):
-    raise ValueError("SECRET_KEY must be set in production environment!")
-
 # Production hosts
 APP_NAME = os.environ.get("FLY_APP_NAME")
 if APP_NAME:

@@ -415,7 +415,7 @@ class ManagementCommandTest(TestCase):
 class OAuthServiceTest(TestCase):
     """Test OAuth service methods with proper settings"""
     
-    @patch('accounts.services.secrets.token_urlsafe')
+    @patch('core.services.accounts_service.secrets.token_urlsafe')
     def test_get_authorization_url_success(self, mock_token):
         """Test successful authorization URL generation"""
         mock_token.return_value = 'test_state_token'
@@ -432,7 +432,7 @@ class OAuthServiceTest(TestCase):
             with self.assertRaises(ValueError):
                 OsuOAuthService.get_authorization_url()
     
-    @patch('accounts.services.requests.post')
+    @patch('core.services.accounts_service.requests.post')
     def test_exchange_code_for_token_success(self, mock_post):
         """Test successful token exchange"""
         mock_response = Mock()
@@ -448,7 +448,7 @@ class OAuthServiceTest(TestCase):
         self.assertIsNotNone(token_data)
         self.assertEqual(token_data['access_token'], 'test_token')
         
-    @patch('accounts.services.requests.post')
+    @patch('core.services.accounts_service.requests.post')
     def test_exchange_code_for_token_http_error(self, mock_post):
         """Test token exchange with HTTP error"""
         mock_post.side_effect = requests.exceptions.Timeout()
@@ -458,7 +458,7 @@ class OAuthServiceTest(TestCase):
         
         self.assertIn("slow", str(cm.exception))
     
-    @patch('accounts.services.requests.get')
+    @patch('core.services.accounts_service.requests.get')
     def test_get_user_info_success(self, mock_get):
         """Test successful user info retrieval"""
         mock_response = Mock()

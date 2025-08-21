@@ -27,13 +27,13 @@ class CompleteModelCoverageTest(TestCase):
         self.user = User.objects.create_user(username='modeluser')
         self.song1 = Song.objects.create(
             title="Model Test Song 1",
-            artist="Test Artist 1",
+            original_song="Test Artist 1",
             audio_url="https://example.com/song1.mp3",
             background_image_url="https://example.com/bg1.jpg"
         )
         self.song2 = Song.objects.create(
             title="Model Test Song 2", 
-            artist="Test Artist 2",
+            original_song="Test Artist 2",
             audio_url="https://example.com/song2.mp3"
         )
     

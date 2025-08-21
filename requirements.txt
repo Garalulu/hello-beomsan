@@ -1,7 +1,0 @@
-# Production requirements (for backward compatibility)
-# For specific environments, use:
-#   - requirements/development.txt for development
-#   - requirements/production.txt for production
-#   - requirements/testing.txt for testing
-
--r requirements/production.txt
