@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Add function to clear tournament cache (admin function)
 function clearTournamentCache() {
-    if (confirm('Are you sure you want to clear the tournament cache? This will remove all cached images and audio.')) {
+    if (confirm('Are you sure you want to clear the tournament cache? This will remove all cached images.')) {
         localStorage.removeItem('tournamentCache');
         if (window.tournamentCache) {
             delete window.tournamentCache;

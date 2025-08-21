@@ -185,7 +185,7 @@ class TournamentCache {
         this.imageCache = new Map();
         this.audioCache = new Map();
         this.preloadedImages = new Set();
-        this.preloadedAudio = new Set();
+        // Audio caching removed - preloadedAudio Set no longer needed
         this.maxCacheSize = 256; // Increased to handle 128 songs + extras
         this.tournamentCacheSize = 128; // Never cleanup tournament resources
         this.sessionData = null;
@@ -251,49 +251,8 @@ class TournamentCache {
         return Promise.allSettled(loadPromises);
     }
     
-    // Preload audio by creating hidden iframes
-    preloadAudio(songs, priority = false) {
-        const audioToLoad = songs.filter(song => 
-            song.audio_url && 
-            song.audio_url.includes('drive.google.com') &&
-            !this.preloadedAudio.has(song.audio_url)
-        );
-        
-        if (audioToLoad.length === 0) return;
-        
-        console.log(`Preloading ${audioToLoad.length} audio files (priority: ${priority})`);
-        
-        audioToLoad.forEach(song => {
-            // Create hidden iframe to trigger Google Drive caching
-            const iframe = document.createElement('iframe');
-            iframe.src = song.audio_url;
-            iframe.style.display = 'none';
-            iframe.style.width = '1px';
-            iframe.style.height = '1px';
-            iframe.style.opacity = '0';
-            iframe.style.pointerEvents = 'none';
-            
-            iframe.onload = () => {
-                this.preloadedAudio.add(song.audio_url);
-                // Remove iframe after short delay to allow caching
-                setTimeout(() => {
-                    if (iframe.parentNode) {
-                        iframe.parentNode.removeChild(iframe);
-                    }
-                }, priority ? 2000 : 5000);
-            };
-            
-            iframe.onerror = () => {
-                console.warn('Failed to preload audio:', song.audio_url);
-                if (iframe.parentNode) {
-                    iframe.parentNode.removeChild(iframe);
-                }
-            };
-            
-            // Add to page
-            document.body.appendChild(iframe);
-        });
-    }
+    // Note: Audio caching removed - Google Drive audio cannot be effectively cached
+    // Only image caching is maintained for performance benefits
     
     // Preload next round songs with priority
     async preloadNextRoundSongs() {
@@ -306,7 +265,7 @@ class TournamentCache {
         if (nextSongs.length > 0) {
             console.log('Preloading next round songs:', nextSongs.length);
             await this.preloadImages(nextSongs, true);
-            this.preloadAudio(nextSongs, true);
+            // Audio preloading removed - only images are cached
         }
     }
     
@@ -345,9 +304,7 @@ class TournamentCache {
         for (let i = 0; i < chunks.length; i++) {
             setTimeout(() => {
                 this.preloadImages(chunks[i], false);
-                setTimeout(() => {
-                    this.preloadAudio(chunks[i], false);
-                }, 1000); // Delay audio preloading slightly
+                // Audio preloading removed - only images are cached
             }, i * 2000); // 2 second delay between chunks
         }
     }
@@ -377,7 +334,6 @@ class TournamentCache {
     getCacheStats() {
         return {
             images_cached: this.preloadedImages.size,
-            audio_cached: this.preloadedAudio.size,
             total_cache_size: this.imageCache.size,
             cache_hit_rate: this.preloadedImages.size / Math.max(1, this.sessionData?.length || 1)
         };
@@ -388,7 +344,6 @@ class TournamentCache {
         const stats = this.getCacheStats();
         console.log('📊 Cache Performance:', {
             '🖼️ Images cached': stats.images_cached,
-            '🎵 Audio cached': stats.audio_cached,
             '💾 Total cache size': stats.total_cache_size,
             '🎯 Cache efficiency': `${(stats.cache_hit_rate * 100).toFixed(1)}%`,
             '🔒 Tournament protection': this.isTournamentActive ? 'ACTIVE' : 'DISABLED'
@@ -400,7 +355,6 @@ class TournamentCache {
         try {
             const cacheData = {
                 preloadedImages: Array.from(this.preloadedImages),
-                preloadedAudio: Array.from(this.preloadedAudio),
                 tournamentSongIds: Array.from(this.tournamentSongIds),
                 sessionData: this.sessionData,
                 isTournamentActive: this.isTournamentActive,
@@ -418,14 +372,12 @@ class TournamentCache {
             const cacheData = JSON.parse(localStorage.getItem('tournamentCache'));
             if (cacheData && (Date.now() - cacheData.timestamp) < 24 * 60 * 60 * 1000) { // 24 hours
                 this.preloadedImages = new Set(cacheData.preloadedImages || []);
-                this.preloadedAudio = new Set(cacheData.preloadedAudio || []);
                 this.tournamentSongIds = new Set(cacheData.tournamentSongIds || []);
                 this.sessionData = cacheData.sessionData;
                 this.isTournamentActive = cacheData.isTournamentActive !== false;
                 
                 console.log('🔄 Restored cache from localStorage:', {
                     images: this.preloadedImages.size,
-                    audio: this.preloadedAudio.size,
                     protected_resources: this.tournamentSongIds.size
                 });
                 return true;
@@ -446,7 +398,7 @@ class TournamentCache {
         if (type === 'image') {
             return this.preloadedImages.has(url);
         } else if (type === 'audio') {
-            return this.preloadedAudio.has(url);
+            return false; // Audio caching disabled
         }
         return false;
     }
@@ -573,31 +525,50 @@ function animateVoteSelection(selectedSongId) {
     const song2Id = song2Card.getAttribute('data-song-id');
     
     let selectedCard, unselectedCard;
-    let isLeftCard = false;
+    let isFirstCard = false;
     
     if (selectedSongId === song1Id) {
-        // Left card selected
+        // First card selected
         selectedCard = song1Card;
         unselectedCard = song2Card;
-        isLeftCard = true;
+        isFirstCard = true;
     } else {
-        // Right card selected  
+        // Second card selected  
         selectedCard = song2Card;
         unselectedCard = song1Card;
-        isLeftCard = false;
+        isFirstCard = false;
     }
     
-    // Add appropriate animation classes based on position
-    if (isLeftCard) {
-        selectedCard.classList.add('vote-animation-selected-left');
-        unselectedCard.classList.add('vote-animation-unselected-right');
+    // Detect if we're on mobile (screen width <= 767px)
+    const isMobile = window.innerWidth <= 767;
+    
+    if (isMobile) {
+        // Mobile: Use up/down animations
+        if (isFirstCard) {
+            // First card (top) selected
+            selectedCard.classList.add('vote-animation-selected-top');
+            unselectedCard.classList.add('vote-animation-unselected-bottom');
+        } else {
+            // Second card (bottom) selected
+            selectedCard.classList.add('vote-animation-selected-bottom');
+            unselectedCard.classList.add('vote-animation-unselected-top');
+        }
+        
+        // Store which position was selected
+        selectedCard.dataset.selectedSide = isFirstCard ? 'top' : 'bottom';
     } else {
-        selectedCard.classList.add('vote-animation-selected-right');
-        unselectedCard.classList.add('vote-animation-unselected-left');
+        // Desktop/Tablet: Use left/right animations
+        if (isFirstCard) {
+            selectedCard.classList.add('vote-animation-selected-left');
+            unselectedCard.classList.add('vote-animation-unselected-right');
+        } else {
+            selectedCard.classList.add('vote-animation-selected-right');
+            unselectedCard.classList.add('vote-animation-unselected-left');
+        }
+        
+        // Store which side was selected
+        selectedCard.dataset.selectedSide = isFirstCard ? 'left' : 'right';
     }
-    
-    // Store which side was selected for the celebration animation
-    selectedCard.dataset.selectedSide = isLeftCard ? 'left' : 'right';
     
     // Fade out VS container
     vsContainer.classList.add('vote-animation-vs');
@@ -616,10 +587,12 @@ function resetVotingState() {
     // Remove voting progress flag
     document.body.classList.remove('voting-in-progress');
     
-    // Remove animation classes
+    // Remove animation classes (both desktop and mobile)
     const animationClasses = [
         'vote-animation-selected-left', 'vote-animation-selected-right',
-        'vote-animation-unselected-left', 'vote-animation-unselected-right', 
+        'vote-animation-unselected-left', 'vote-animation-unselected-right',
+        'vote-animation-selected-top', 'vote-animation-selected-bottom',
+        'vote-animation-unselected-top', 'vote-animation-unselected-bottom',
         'vote-animation-vs'
     ];
     
@@ -681,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     
     tournamentCache.preloadImages(currentMatchSongs, true);
-    tournamentCache.preloadAudio(currentMatchSongs, true);
+    // Audio preloading removed - only images are cached
     
     console.log('Cache initialization completed');
     
@@ -877,13 +850,30 @@ document.addEventListener('keydown', function(e) {
         return;
     }
     
-    if (e.key === '1' || e.key === 'ArrowLeft') {
+    if (e.key === '1' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         selectSong('{{ match_data.song1.id }}');
-    } else if (e.key === '2' || e.key === 'ArrowRight') {
+    } else if (e.key === '2' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
         selectSong('{{ match_data.song2.id }}');
     }
+});
+
+// Handle orientation changes and window resize
+let resizeTimeout;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(function() {
+        // Reset any ongoing animations on resize to prevent layout issues
+        if (document.body.classList.contains('voting-in-progress')) {
+            resetVotingState();
+        }
+        
+        // Log layout change for debugging
+        const isMobile = window.innerWidth <= 767;
+        console.log('Layout changed:', isMobile ? 'Mobile (vertical)' : 'Desktop (horizontal)', 
+                   'Width:', window.innerWidth + 'px');
+    }, 100);
 });
 </script>
 {% endblock %}

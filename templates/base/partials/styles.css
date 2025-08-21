@@ -1,19 +1,83 @@
+/* CSS Custom Properties for Theme Support */
+:root {
+    /* Light theme variables */
+    --bs-body-bg: #ffffff;
+    --bs-body-color: #212529;
+    --bs-secondary-bg: #f8f9fa;
+    --bs-tertiary-bg: #e9ecef;
+    --bs-border-color: #dee2e6;
+    --bs-text-muted: #6c757d;
+    --bs-link-color: #0d6efd;
+    --bs-link-hover-color: #0a58ca;
+    
+    /* Component specific variables */
+    --card-bg: #ffffff;
+    --card-border: #dee2e6;
+    --navbar-bg: #ffffff;
+    --navbar-brand-color: #212529;
+    --button-outline-border: #dee2e6;
+    --match-container-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --song-card-hover-bg: rgba(0,123,255,0.1);
+    --vs-text-shadow: rgba(0,0,0,0.3);
+    --modal-bg: #ffffff;
+    --modal-header-bg: #ffffff;
+    --alert-bg: #d1ecf1;
+    --alert-border: #bee5eb;
+    --alert-color: #0c5460;
+    --progress-bg: #e9ecef;
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+    --bs-body-bg: #1a1a1a;
+    --bs-body-color: #e9ecef;
+    --bs-secondary-bg: #2d2d2d;
+    --bs-tertiary-bg: #404040;
+    --bs-border-color: #495057;
+    --bs-text-muted: #adb5bd;
+    --bs-link-color: #66b3ff;
+    --bs-link-hover-color: #4da6ff;
+    
+    /* Component specific variables for dark theme */
+    --card-bg: #2d2d2d;
+    --card-border: #495057;
+    --navbar-bg: #212529;
+    --navbar-brand-color: #ffffff;
+    --button-outline-border: #495057;
+    --match-container-bg: linear-gradient(135deg, #4a5c8a 0%, #5a4a72 100%);
+    --song-card-hover-bg: rgba(102,179,255,0.15);
+    --vs-text-shadow: rgba(0,0,0,0.8);
+    --modal-bg: #2d2d2d;
+    --modal-header-bg: #404040;
+    --alert-bg: #1e3a40;
+    --alert-border: #2c5961;
+    --alert-color: #b8daff;
+    --progress-bg: #495057;
+}
+
+/* Apply theme variables to body */
+body {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 .song-card {
-    border: 2px solid #dee2e6;
+    border: 2px solid var(--card-border);
     transition: all 0.3s ease;
     cursor: pointer;
-    background-color: var(--bs-body-bg);
+    background-color: var(--card-bg);
     color: var(--bs-body-color);
 }
 .song-card:hover, .song-card-hover {
-    border-color: #007bff;
+    border-color: var(--bs-link-color);
     transform: translateY(-5px);
     box-shadow: 0 8px 16px rgba(0,123,255,0.2);
-    background: linear-gradient(135deg, rgba(0,123,255,0.1) 0%, rgba(0,123,255,0.05) 100%);
+    background: var(--song-card-hover-bg);
 }
 .song-card.selected {
     border-color: #28a745;
-    background-color: #f8fff9;
+    background-color: var(--bs-secondary-bg);
 }
 .vote-count {
     font-weight: bold;
@@ -24,7 +88,7 @@
     margin: 10px 0;
 }
 .match-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--match-container-bg);
     border-radius: 15px;
     padding: 20px;
     margin: 20px 0;
@@ -33,20 +97,138 @@
 .vs-text {
     font-size: 2em;
     font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 2px 2px 4px var(--vs-text-shadow);
 }
 .bracket-round {
     margin: 20px 0;
     padding: 15px;
-    background-color: #f8f9fa;
+    background-color: var(--bs-secondary-bg);
     border-radius: 10px;
 }
 .match-item {
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     padding: 15px;
     margin: 10px 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid var(--card-border);
+}
+
+/* Dark theme specific component styles */
+[data-theme="dark"] .card {
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--bs-body-color);
+}
+
+[data-theme="dark"] .card-header {
+    background-color: var(--modal-header-bg);
+    border-bottom-color: var(--card-border);
+    color: var(--bs-body-color);
+}
+
+[data-theme="dark"] .btn-outline-primary {
+    border-color: var(--bs-link-color);
+    color: var(--bs-link-color);
+}
+
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: var(--bs-link-color);
+    border-color: var(--bs-link-color);
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    border-color: var(--button-outline-border);
+    color: var(--bs-text-muted);
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: var(--bs-text-muted);
+    border-color: var(--bs-text-muted);
+}
+
+[data-theme="dark"] .form-control {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--card-border);
+    color: var(--bs-body-color);
+}
+
+[data-theme="dark"] .form-control:focus {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-link-color);
+    box-shadow: 0 0 0 0.2rem rgba(102, 179, 255, 0.25);
+    color: var(--bs-body-color);
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: var(--modal-bg);
+    border-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-header {
+    background-color: var(--modal-header-bg);
+    border-bottom-color: var(--card-border);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: var(--card-border);
+}
+
+[data-theme="dark"] .navbar {
+    background-color: var(--navbar-bg) !important;
+}
+
+[data-theme="dark"] .navbar-brand,
+[data-theme="dark"] .navbar-nav .nav-link {
+    color: var(--navbar-brand-color) !important;
+}
+
+[data-theme="dark"] .progress {
+    background-color: var(--progress-bg);
+}
+
+[data-theme="dark"] .alert {
+    background-color: var(--alert-bg);
+    border-color: var(--alert-border);
+    color: var(--alert-color);
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--bs-text-muted) !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: var(--bs-secondary-bg) !important;
+}
+
+[data-theme="dark"] .border {
+    border-color: var(--card-border) !important;
+}
+
+/* Ensure proper contrast for links */
+[data-theme="dark"] a {
+    color: var(--bs-link-color);
+}
+
+[data-theme="dark"] a:hover {
+    color: var(--bs-link-hover-color);
+}
+
+/* Table styles for dark theme */
+[data-theme="dark"] .table {
+    color: var(--bs-body-color);
+}
+
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td,
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > th {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Audio loading states dark theme */
+[data-theme="dark"] .audio-loading-state {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--card-border);
+    color: var(--bs-body-color);
 }
 
 /* Voting Animation Styles */
@@ -483,9 +665,127 @@
     }
 }
 
-/* Responsive Animation Adjustments */
-@media (max-width: 991px) {
-    /* Tablet and mobile animations */
+/* Mobile-specific voting layout adjustments */
+@media (max-width: 767px) {
+    /* Vertical stacking for mobile voting */
+    .voting-container {
+        flex-direction: column !important;
+    }
+    
+    .voting-container .row {
+        flex-direction: column;
+    }
+    
+    #song1Container {
+        order: 0;
+        margin-bottom: 15px !important;
+    }
+    
+    #vsContainer {
+        order: 1;
+        margin: 10px 0 !important;
+        padding: 0 !important;
+    }
+    
+    #song2Container {
+        order: 2;
+        margin-bottom: 15px !important;
+    }
+    
+    /* Mobile voting animations - up/down movement */
+    .vote-animation-selected-top {
+        animation: moveUpToCenter 2.5s ease-in-out forwards;
+        z-index: 10;
+    }
+    
+    .vote-animation-selected-bottom {
+        animation: moveDownToCenter 2.5s ease-in-out forwards;
+        z-index: 10;
+    }
+    
+    .vote-animation-unselected-top {
+        animation: fadeOutUp 2s ease-in-out forwards;
+        z-index: 1;
+    }
+    
+    .vote-animation-unselected-bottom {
+        animation: fadeOutDown 2s ease-in-out forwards;
+        z-index: 1;
+    }
+}
+
+/* Mobile-specific keyframe animations */
+@media (max-width: 767px) {
+    @keyframes moveUpToCenter {
+        0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        60% {
+            transform: translateY(-10%) scale(1.05);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-10%) scale(1.1);
+            opacity: 1;
+            border-color: #28a745;
+            box-shadow: 0 8px 16px rgba(40, 167, 69, 0.4);
+        }
+    }
+    
+    @keyframes moveDownToCenter {
+        0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        60% {
+            transform: translateY(10%) scale(1.05);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(10%) scale(1.1);
+            opacity: 1;
+            border-color: #28a745;
+            box-shadow: 0 8px 16px rgba(40, 167, 69, 0.4);
+        }
+    }
+    
+    @keyframes fadeOutUp {
+        0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        30% {
+            transform: translateY(-20%) scale(0.8);
+            opacity: 0.3;
+        }
+        100% {
+            transform: translateY(-50%) scale(0.5);
+            opacity: 0;
+            visibility: hidden;
+        }
+    }
+    
+    @keyframes fadeOutDown {
+        0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        30% {
+            transform: translateY(20%) scale(0.8);
+            opacity: 0.3;
+        }
+        100% {
+            transform: translateY(50%) scale(0.5);
+            opacity: 0;
+            visibility: hidden;
+        }
+    }
+}
+
+/* Responsive Animation Adjustments for Tablet */
+@media (min-width: 768px) and (max-width: 991px) {
+    /* Tablet animations - still horizontal but reduced movement */
     .vote-animation-selected-left,
     .vote-animation-selected-right {
         animation-duration: 2.5s;
@@ -509,27 +809,24 @@
     }
 }
 
-@media (max-width: 575px) {
-    /* Mobile-specific animations */
-    @keyframes moveToCenter {
-        0% { transform: scale(1); opacity: 1; }
-        60% { transform: scale(1.05); opacity: 1; }
-        100% { transform: scale(1.1); opacity: 1; border-color: #28a745; box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3); }
+/* Desktop animations remain unchanged */
+@media (min-width: 992px) {
+    /* Original desktop animations */
+    .vote-animation-selected-left {
+        animation: moveToCenter 3s ease-in-out forwards;
     }
     
-    @keyframes moveToCenterFromRight {
-        0% { transform: scale(1); opacity: 1; }
-        60% { transform: scale(1.05); opacity: 1; }
-        100% { transform: scale(1.1); opacity: 1; border-color: #28a745; box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3); }
+    .vote-animation-selected-right {
+        animation: moveToCenterFromRight 3s ease-in-out forwards;
     }
     
-    @keyframes fadeOutAndDisappear,
-    @keyframes fadeOutAndDisappearFromRight {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(0.8); opacity: 0.3; }
-        100% { transform: scale(0); opacity: 0; visibility: hidden; }
+    .vote-animation-unselected-left {
+        animation: fadeOutAndDisappear 3s ease-in-out forwards;
     }
     
+    .vote-animation-unselected-right {
+        animation: fadeOutAndDisappearFromRight 3s ease-in-out forwards;
+    }
 }
 
 /* Audio loading states */

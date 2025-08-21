@@ -8,49 +8,23 @@ if (!window.tournamentCache && localStorage.getItem('tournamentCache')) {
             window.tournamentCache = {
                 isResourceCached: function(url, type = 'image') {
                     const preloadedImages = new Set(cacheData.preloadedImages || []);
-                    const preloadedAudio = new Set(cacheData.preloadedAudio || []);
                     
                     if (type === 'image') {
                         return preloadedImages.has(url);
                     } else if (type === 'audio') {
-                        return preloadedAudio.has(url);
+                        return false; // Audio caching disabled
                     }
                     return false;
                 },
                 getCacheStats: function() {
                     return {
                         images_cached: (cacheData.preloadedImages || []).length,
-                        audio_cached: (cacheData.preloadedAudio || []).length,
                         tournament_active: cacheData.isTournamentActive !== false
                     };
                 },
                 preloadAudioForNextMatch: function() {
-                    // Enhanced audio preloading for better performance
-                    try {
-                        const sessionData = cacheData.sessionData;
-                        if (sessionData && Array.isArray(sessionData)) {
-                            // Find next potential matches and preload their audio
-                            sessionData.slice(0, 4).forEach((song, index) => {
-                                if (song.audio_url && song.audio_url.includes('drive.google.com')) {
-                                    // Use link preload for Google Drive audio
-                                    const link = document.createElement('link');
-                                    link.rel = 'preload';
-                                    link.as = 'document';
-                                    link.href = song.audio_url;
-                                    link.setAttribute('data-preload-type', 'audio-next');
-                                    
-                                    // Add to head if not already there
-                                    const existing = document.querySelector(`link[href="${song.audio_url}"]`);
-                                    if (!existing) {
-                                        document.head.appendChild(link);
-                                        console.log('🎵 Preloaded audio for next match:', song.title);
-                                    }
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        console.warn('Audio preloading failed:', error);
-                    }
+                    // Audio preloading disabled - Google Drive audio cannot be effectively cached
+                    console.log('ℹ️ Audio preloading disabled - using on-demand loading instead');
                 },
                 sessionData: cacheData.sessionData
             };

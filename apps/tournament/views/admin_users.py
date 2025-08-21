@@ -9,8 +9,9 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib import messages
 
-from ..models import VotingSession
+from ..models import VotingSession, UserProfile
 
 import logging
 
@@ -22,10 +23,21 @@ def user_manage(request):
     """User management interface"""
     from django.contrib.auth.models import User
     
+    # Clean up orphaned profiles (profiles without users)
+    try:
+        orphaned_profiles = UserProfile.objects.filter(user__isnull=True)
+        if orphaned_profiles.exists():
+            count = orphaned_profiles.count()
+            orphaned_profiles.delete()
+            messages.success(request, f'Cleaned up {count} orphaned user profile(s)')
+            logger.info(f'Cleaned up {count} orphaned user profiles')
+    except Exception as e:
+        logger.error(f'Error cleaning up orphaned profiles: {e}')
+    
     # Get search filter
     username_filter = request.GET.get('username', '').strip()
     
-    # Base queryset - get users with their profile data and session counts
+    # Base queryset - get only users that actually exist with optional profile data
     users = User.objects.select_related('profile').annotate(
         total_sessions=Count('voting_sessions', distinct=True),
         completed_sessions=Count(
@@ -40,11 +52,11 @@ def user_manage(request):
         )
     ).order_by('-date_joined')
     
-    # Apply username filter if provided
+    # Apply username filter if provided - be defensive about profile access
     if username_filter:
+        profile_filter = Q(profile__osu_username__icontains=username_filter)
         users = users.filter(
-            Q(username__icontains=username_filter) |
-            Q(profile__osu_username__icontains=username_filter)
+            Q(username__icontains=username_filter) | profile_filter
         )
     
     # Profile relationship is already accessible via select_related('profile')
@@ -93,7 +105,7 @@ def user_stats_ajax(request, user_id):
         thirty_days_ago = timezone.now() - timedelta(days=30)
         recent_sessions = user_sessions.filter(created_at__gte=thirty_days_ago).count()
         
-        # Get user profile info
+        # Get user profile info - be defensive about profile access
         profile_info = {}
         try:
             if hasattr(user, 'profile') and user.profile:
@@ -102,8 +114,9 @@ def user_stats_ajax(request, user_id):
                     'osu_user_id': user.profile.osu_user_id,
                     'avatar_url': user.profile.avatar_url,
                 }
-        except:
-            pass
+        except (AttributeError, UserProfile.DoesNotExist) as e:
+            logger.warning(f'Profile access issue for user {user.id}: {e}')
+            profile_info = {'osu_username': 'No profile', 'osu_user_id': None, 'avatar_url': ''}
         
         # Get most recent sessions for activity timeline
         recent_activity = []

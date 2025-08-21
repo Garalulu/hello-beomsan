@@ -10,6 +10,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db import transaction, IntegrityError
+from django.db.models import Q
 
 from ..models import Song
 from .utils import (
@@ -98,7 +99,17 @@ def upload_song(request):
 def manage_songs(request):
     """Manage existing songs"""
     try:
+        # Get search parameters
+        search_query = request.GET.get('search', '').strip()
+        
         songs = Song.objects.all().order_by('-created_at')
+        
+        # Apply search filter if provided
+        if search_query:
+            songs = songs.filter(
+                Q(title__icontains=search_query) |
+                Q(original_song__icontains=search_query)
+            )
         
         # Pagination
         paginator = Paginator(songs, 10)
@@ -106,7 +117,8 @@ def manage_songs(request):
         page_obj = paginator.get_page(page_number)
         
         response = render(request, 'pages/admin/manage_songs.html', {
-            'page_obj': page_obj
+            'page_obj': page_obj,
+            'search_query': search_query
         })
         # Add cache-busting headers to ensure fresh data
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -118,7 +130,8 @@ def manage_songs(request):
         logger.error(f"Error in manage_songs view: {type(e).__name__}: {str(e)}")
         messages.error(request, "Unable to load songs management page.")
         response = render(request, 'pages/admin/manage_songs.html', {
-            'page_obj': None
+            'page_obj': None,
+            'search_query': ''
         })
         # Add cache-busting headers to ensure fresh data
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'

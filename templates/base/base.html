@@ -53,6 +53,103 @@
     <!-- Footer -->
     {% include 'base/partials/footer.html' %}
 
+    <!-- Theme Detection and Toggle Script - Load first for immediate theme application -->
+    <script>
+        // Theme Management System
+        class ThemeManager {
+            constructor() {
+                this.currentTheme = this.getStoredTheme() || this.getPreferredTheme();
+                this.init();
+            }
+            
+            getStoredTheme() {
+                return localStorage.getItem('theme');
+            }
+            
+            setStoredTheme(theme) {
+                localStorage.setItem('theme', theme);
+            }
+            
+            getPreferredTheme() {
+                if (this.getStoredTheme()) {
+                    return this.getStoredTheme();
+                }
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            
+            setTheme(theme) {
+                if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.setAttribute('data-theme', theme);
+                }
+                this.currentTheme = theme;
+                this.updateThemeButton();
+            }
+            
+            updateThemeButton() {
+                const themeIcon = document.getElementById('themeIcon');
+                if (!themeIcon) return;
+                
+                const activeTheme = document.documentElement.getAttribute('data-theme');
+                
+                if (activeTheme === 'dark') {
+                    themeIcon.className = 'fas fa-sun';
+                    themeIcon.parentElement.title = 'Switch to light theme';
+                } else {
+                    themeIcon.className = 'fas fa-moon';
+                    themeIcon.parentElement.title = 'Switch to dark theme';
+                }
+            }
+            
+            toggleTheme() {
+                const activeTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = activeTheme === 'dark' ? 'light' : 'dark';
+                this.setStoredTheme(newTheme);
+                this.setTheme(newTheme);
+                
+                // Add a small animation effect
+                document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+                setTimeout(() => {
+                    document.body.style.transition = '';
+                }, 300);
+            }
+            
+            init() {
+                // Apply theme immediately to prevent flash
+                this.setTheme(this.currentTheme);
+                
+                // Wait for DOM to be ready before setting up event listeners
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => this.setupEventListeners());
+                } else {
+                    this.setupEventListeners();
+                }
+                
+                // Listen for system theme changes
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                    if (!this.getStoredTheme()) {
+                        this.setTheme(this.getPreferredTheme());
+                    }
+                });
+            }
+            
+            setupEventListeners() {
+                const themeToggle = document.getElementById('themeToggle');
+                if (themeToggle) {
+                    themeToggle.addEventListener('click', () => this.toggleTheme());
+                }
+                this.updateThemeButton();
+            }
+        }
+        
+        // Initialize theme manager immediately
+        const themeManager = new ThemeManager();
+        
+        // Make it globally available
+        window.themeManager = themeManager;
+    </script>
+
     <!-- JavaScript with integrity, async loading for better performance -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" 
             integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK" 
