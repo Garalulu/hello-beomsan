@@ -64,7 +64,7 @@ WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
 
 # Production logging with file handler
-LOGGING = LOGGING_CONFIG.copy()
+LOGGING = LOGGING.copy()
 log_dir = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(log_dir):
     try:
