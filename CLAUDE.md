@@ -142,3 +142,4 @@ Songs use Google Drive URLs:
 - use uv for python command
 - Commit and push the changes after test is finished well
 - Fix SSH console "handle is invalid" error on Windows - use GitHub Actions for deployment
+- you should use && source .venv/Scripts/activate for venv

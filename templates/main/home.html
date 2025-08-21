@@ -26,41 +26,41 @@
 
             <div class="row justify-content-center g-3 g-md-4">
                 <div class="col-12 col-sm-6 col-lg-5 col-xl-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="fas fa-play-circle fa-3x text-primary mb-3"></i>
-                        <h4>Start Playing</h4>
-                        <p class="text-muted">Begin a new tournament with 128 randomly selected songs</p>
-                        
-                        {% if active_session %}
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> You have a session in progress
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-play-circle fa-3x text-primary mb-3"></i>
+                            <h4>Start Playing</h4>
+                            <p class="text-muted">Begin a new tournament with 128 randomly selected songs</p>
+                            
+                            {% if active_session %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> You have a session in progress
+                            </div>
+                            <a href="{% url 'start_game' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play"></i> Continue/New Game
+                            </a>
+                            {% else %}
+                            <a href="{% url 'start_game' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play"></i> Start Game
+                            </a>
+                            {% endif %}
                         </div>
-                        <a href="{% url 'start_game' %}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-play"></i> Continue/New Game
-                        </a>
-                        {% else %}
-                        <a href="{% url 'start_game' %}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-play"></i> Start Game
-                        </a>
-                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-12 col-sm-6 col-lg-5 col-xl-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
+                            <h4>Song Statistics</h4>
+                            <p class="text-muted">View win rates and pick rates for all songs</p>
+                            <a href="{% url 'song_stats' %}" class="btn btn-success btn-lg">
+                                <i class="fas fa-chart-line"></i> View Stats
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
-                        <h4>Song Statistics</h4>
-                        <p class="text-muted">View win rates and pick rates for all songs</p>
-                        <a href="{% url 'song_stats' %}" class="btn btn-success btn-lg">
-                            <i class="fas fa-chart-line"></i> View Stats
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         {% if not user.is_authenticated %}
         <div class="row justify-content-center mt-4">

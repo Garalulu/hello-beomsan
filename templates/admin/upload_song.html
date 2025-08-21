@@ -26,9 +26,13 @@
                     <div class="mb-3">
                         <label for="audio_url" class="form-label">Audio URL (Google Drive) *</label>
                         <input type="url" class="form-control" id="audio_url" name="audio_url" required>
-                            <div class="form-text">
-                            Google Drive direct download link. Make sure the file is publicly accessible.
-                            <br><span class="d-none d-sm-inline">Example: </span><code class="d-block d-sm-inline text-break">https://drive.google.com/uc?export=download&id=FILE_ID</code>
+                        <div class="form-text">
+                            <div class="alert alert-success p-2 mb-2">
+                                <small><i class="fas fa-magic"></i> <strong>Auto-conversion:</strong> Converts to streaming format automatically!</small>
+                            </div>
+                            Google Drive link. Make sure the file is publicly accessible.<br>
+                            <strong>Accepts:</strong> <code class="text-break">https://drive.google.com/file/d/FILE_ID/view</code><br>
+                            <strong>Converts to:</strong> <code class="text-break">https://drive.google.com/file/d/FILE_ID/preview</code>
                         </div>
                     </div>
                     
@@ -36,8 +40,9 @@
                         <label for="background_image_url" class="form-label">Background Image URL (Google Drive)</label>
                         <input type="url" class="form-control" id="background_image_url" name="background_image_url">
                         <div class="form-text">
-                            Optional background image. Use Google Drive direct link.
-                            <br><span class="d-none d-sm-inline">Example: </span><code class="d-block d-sm-inline text-break">https://drive.google.com/uc?export=view&id=FILE_ID</code>
+                            Optional background image. Auto-converts Google Drive URLs.<br>
+                            <strong>Accepts:</strong> <code class="text-break">https://drive.google.com/file/d/FILE_ID/view</code><br>
+                            <strong>Converts to:</strong> <code class="text-break">https://drive.google.com/thumbnail?id=FILE_ID&sz=w1000</code>
                         </div>
                     </div>
                     

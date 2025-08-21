@@ -18,14 +18,25 @@
                             <li><strong>Required columns:</strong> title, audio_url</li>
                             <li><strong>Optional columns:</strong> original_song, background_image_url</li>
                         </ul>
+                        
+                        <div class="alert alert-success mb-3">
+                            <h6><i class="fas fa-check-circle"></i> Google Sheets & Drive Compatible</h6>
+                            <p class="mb-1">✅ Supports Google Sheets CSV exports directly - no need to add quotes manually!</p>
+                            <p class="mb-0">✅ Automatically converts URLs: Audio → streaming format, Images → thumbnail format!</p>
+                        </div>
+                        
                         <p class="mb-2"><strong>Example CSV format:</strong></p>
                         <div class="bg-light p-2 rounded">
                         <code class="text-break">
                             title,original_song,audio_url,background_image_url<br>
-                            "Remix Title 1","Original Song Name","https://drive.google.com/uc?export=download&id=FILE_ID","https://drive.google.com/uc?export=view&id=IMG_ID"<br>
-                            "Remix Title 2","Original Song 2","https://drive.google.com/uc?export=download&id=FILE_ID2",""
+                            Remix Title 1,Original Song Name,https://drive.google.com/file/d/FILE_ID/view,https://drive.google.com/file/d/IMG_ID/view<br>
+                            "Song Title, with commas",Original Song 2,https://drive.google.com/uc?export=download&id=FILE_ID2,
                         </code>
                         </div>
+                        <small class="text-muted">
+                            <strong>URL Formats:</strong> Both Google Drive sharing URLs (/file/d/ID/view) and direct URLs (/uc?export=...) are supported.<br>
+                            <strong>Quotes:</strong> Only needed for fields containing commas.
+                        </small>
                     </div>
 
                     <!-- Upload Form -->
@@ -69,8 +80,9 @@
 <script>
 function downloadSampleCSV() {
     const csvContent = `title,original_song,audio_url,background_image_url
-"Sample Remix 1","Original Song Name 1","https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID","https://drive.google.com/uc?export=view&id=YOUR_IMAGE_FILE_ID"
-"Sample Remix 2","Original Song Name 2","https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID_2",""`;
+Sample Remix 1,Original Song Name 1,https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID,https://drive.google.com/uc?export=view&id=YOUR_IMAGE_FILE_ID
+Sample Remix 2,Original Song Name 2,https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID_2,
+"Song Title, with commas",Original Song 3,https://drive.google.com/uc?export=download&id=YOUR_AUDIO_FILE_ID_3,`;
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);

@@ -8,14 +8,105 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.db import transaction, IntegrityError
+from django.utils import timezone
 from .models import Song, VotingSession, Match, Vote
 from .services import VotingSessionService
 import json
 import logging
 import csv
 import io
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def convert_google_drive_url(url, url_type='view'):
+    """
+    Convert Google Drive sharing URLs to appropriate format based on use case
+    url_type: 
+    - 'image' for image display/thumbnails
+    - 'audio' for audio streaming/preview  
+    - 'download' for direct downloads
+    - 'view' for general viewing (legacy)
+    """
+    if not url or 'drive.google.com' not in url:
+        return url
+    
+    # Extract file ID from various Google Drive URL formats
+    file_id_patterns = [
+        r'/file/d/([a-zA-Z0-9_-]+)',  # /file/d/FILE_ID/view or /file/d/FILE_ID/edit
+        r'id=([a-zA-Z0-9_-]+)',       # ?id=FILE_ID
+    ]
+    
+    file_id = None
+    for pattern in file_id_patterns:
+        match = re.search(pattern, url)
+        if match:
+            file_id = match.group(1)
+            break
+    
+    if file_id:
+        if url_type == 'image':
+            # Use thumbnail API for images - works better for embedding
+            return f"https://drive.google.com/thumbnail?id={file_id}&sz=w1000"
+        elif url_type == 'audio':
+            # Use preview format for audio streaming
+            return f"https://drive.google.com/file/d/{file_id}/preview"
+        elif url_type == 'download':
+            # Use download format for actual downloads
+            return f"https://drive.google.com/uc?export=download&id={file_id}"
+        else:  # view (legacy)
+            return f"https://drive.google.com/uc?export=view&id={file_id}"
+    
+    return url
+
+
+def clear_song_caches():
+    """Clear all song-related caches"""
+    from django.core.cache import cache
+    cache.delete_many([
+        'home_stats_total_songs',
+        'completed_tournaments_count'
+    ])
+    # Clear song stats cache patterns
+    cache_patterns = ['song_stats_*']
+    for pattern in cache_patterns:
+        if hasattr(cache, 'delete_pattern'):
+            cache.delete_pattern(pattern)
+
+
+def check_duplicate_song(title, original_song=None):
+    """
+    Check if a song with the same title and original_song already exists
+    Returns (is_duplicate, existing_song_or_none)
+    """
+    from django.db.models import Q
+    
+    title = title.strip()
+    original_song = original_song.strip() if original_song else ''
+    
+    # Build query for potential duplicates
+    if original_song:
+        # If original_song is provided, check for exact match on both fields
+        duplicate_query = Q(title__iexact=title) & Q(original_song__iexact=original_song)
+    else:
+        # If no original_song, check for songs with same title and no original_song
+        duplicate_query = Q(title__iexact=title) & (Q(original_song='') | Q(original_song__isnull=True))
+    
+    # Also check for potential conflicts where title matches regardless of original_song
+    title_conflict_query = Q(title__iexact=title)
+    
+    existing_song = Song.objects.filter(duplicate_query).first()
+    if existing_song:
+        return True, existing_song
+    
+    # Check for title conflicts that might be confusing
+    title_conflict = Song.objects.filter(title_conflict_query).first()
+    if title_conflict and title_conflict.original_song != original_song:
+        # Different original_song but same title - might be confusing but not a strict duplicate
+        return False, title_conflict
+    
+    return False, None
 
 
 @ensure_csrf_cookie
@@ -213,10 +304,27 @@ def vote(request):
             messages.error(request, "Unable to load current match. Please try again.")
             return redirect('start_game')
         
-        return render(request, 'main/vote.html', {
-            'match': current_match,
-            'session': session
+        # Add debugging info and cache headers
+        response = render(request, 'main/vote.html', {
+            'match_data': current_match,
+            'session': session,
+            'debug_info': {
+                'session_id': str(session.id),
+                'current_match': session.current_match,
+                'current_round': session.current_round,
+                'last_updated': session.updated_at.isoformat(),
+                'page_generated_at': timezone.now().isoformat()
+            }
         })
+        
+        # Add aggressive cache control headers to prevent caching
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        response['Last-Modified'] = 'Thu, 01 Jan 1970 00:00:00 GMT'
+        response['ETag'] = ''
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error in vote view: {type(e).__name__}: {str(e)}")
@@ -229,11 +337,17 @@ def vote(request):
 def cast_vote(request):
     """Handle vote submission via AJAX"""
     try:
+        # Log the raw request body for debugging
+        logger.info(f"Cast vote request body: {request.body}")
+        
         data = json.loads(request.body)
         session_id = data.get('session_id')
         chosen_song_id = data.get('chosen_song_id')
         
+        logger.info(f"Parsed vote data: session_id={session_id}, chosen_song_id={chosen_song_id}")
+        
         if not session_id or not chosen_song_id:
+            logger.error(f"Missing data in vote request: session_id={session_id}, chosen_song_id={chosen_song_id}")
             return JsonResponse({
                 'success': False,
                 'error': 'Missing session ID or song ID'
@@ -322,6 +436,69 @@ def cast_vote(request):
 
 
 @ensure_csrf_cookie
+def session_songs_api(request):
+    """API endpoint to get all songs in current session for preloading"""
+    try:
+        # Get current session
+        if request.user.is_authenticated:
+            session = VotingSession.objects.filter(
+                user=request.user,
+                status='ACTIVE'
+            ).first()
+        else:
+            session_key = request.session.session_key
+            if not session_key:
+                return JsonResponse({'error': 'No session found'}, status=404)
+            session = VotingSession.objects.filter(
+                session_key=session_key,
+                status='ACTIVE'
+            ).first()
+        
+        if not session:
+            return JsonResponse({'error': 'No active session found'}, status=404)
+        
+        # Extract all songs from bracket data
+        all_songs = []
+        song_ids = set()
+        
+        try:
+            for round_key, matches in session.bracket_data.items():
+                for match in matches:
+                    # Get song1
+                    if 'song1' in match and match['song1'] and 'id' in match['song1']:
+                        song_ids.add(match['song1']['id'])
+                    # Get song2
+                    if 'song2' in match and match['song2'] and 'id' in match['song2']:
+                        song_ids.add(match['song2']['id'])
+                    # Get winner if exists
+                    if 'winner' in match and match['winner'] and 'id' in match['winner']:
+                        song_ids.add(match['winner']['id'])
+            
+            # Fetch Song objects for all unique IDs
+            songs = Song.objects.filter(id__in=song_ids)
+            
+            for song in songs:
+                all_songs.append({
+                    'id': str(song.id),
+                    'title': song.title,
+                    'original_song': song.original_song or '',
+                    'audio_url': song.audio_url,
+                    'background_image_url': song.background_image_url
+                })
+            
+            logger.info(f"Session songs API: returning {len(all_songs)} songs for session {session.id}")
+            return JsonResponse(all_songs, safe=False)
+            
+        except Exception as e:
+            logger.error(f"Error processing bracket data: {e}")
+            return JsonResponse({'error': 'Error processing session data'}, status=500)
+        
+    except Exception as e:
+        logger.error(f"Error in session_songs_api: {type(e).__name__}: {str(e)}")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+
+
+@ensure_csrf_cookie
 def song_stats(request):
     """Display song statistics"""
     try:
@@ -378,24 +555,39 @@ def upload_song(request):
             elif not audio_url:
                 messages.error(request, "Audio URL is required.")
             else:
-                try:
-                    with transaction.atomic():
-                        song = Song.objects.create(
-                            title=title,
-                            original_song=original_song,
-                            audio_url=audio_url,
-                            background_image_url=background_image_url
-                        )
-                    
-                    messages.success(request, f"Song '{title}' uploaded successfully!")
-                    return redirect('manage_songs')
-                    
-                except IntegrityError as e:
-                    logger.error(f"Database integrity error creating song: {e}")
-                    messages.error(request, "A song with this information already exists.")
-                except Exception as e:
-                    logger.error(f"Error creating song: {e}")
-                    messages.error(request, "An error occurred while uploading the song.")
+                # Check for duplicates
+                is_duplicate, existing_song = check_duplicate_song(title, original_song)
+                if is_duplicate:
+                    if original_song:
+                        messages.error(request, f"Song '{title}' (Original: {original_song}) already exists in the database.")
+                    else:
+                        messages.error(request, f"Song '{title}' already exists in the database.")
+                else:
+                    try:
+                        # Convert Google Drive URLs to proper format
+                        audio_url = convert_google_drive_url(audio_url, 'audio')
+                        background_image_url = convert_google_drive_url(background_image_url, 'image')
+                        
+                        with transaction.atomic():
+                            song = Song.objects.create(
+                                title=title,
+                                original_song=original_song,
+                                audio_url=audio_url,
+                                background_image_url=background_image_url
+                            )
+                        
+                        # Clear relevant caches after adding new song
+                        clear_song_caches()
+                        
+                        messages.success(request, f"Song '{title}' uploaded successfully!")
+                        return redirect('manage_songs')
+                        
+                    except IntegrityError as e:
+                        logger.error(f"Database integrity error creating song: {e}")
+                        messages.error(request, "A song with this information already exists.")
+                    except Exception as e:
+                        logger.error(f"Error creating song: {e}")
+                        messages.error(request, "An error occurred while uploading the song.")
         
         return render(request, 'admin/upload_song.html')
         
@@ -442,11 +634,28 @@ def edit_song(request, song_id):
         background_image_url = request.POST.get('background_image_url', '').strip()
         
         if title and audio_url:
+            # Check for duplicates only if title or original_song changed
+            if song.title != title or song.original_song != original_song:
+                is_duplicate, existing_song = check_duplicate_song(title, original_song)
+                if is_duplicate and existing_song.id != song.id:
+                    if original_song:
+                        messages.error(request, f"Song '{title}' (Original: {original_song}) already exists in the database.")
+                    else:
+                        messages.error(request, f"Song '{title}' already exists in the database.")
+                    return render(request, 'admin/edit_song.html', {'song': song})
+            
+            # Convert Google Drive URLs to proper format
+            audio_url = convert_google_drive_url(audio_url, 'audio')
+            background_image_url = convert_google_drive_url(background_image_url, 'image')
+            
             song.title = title
             song.original_song = original_song
             song.audio_url = audio_url
             song.background_image_url = background_image_url
             song.save()
+            
+            # Clear relevant caches after updating song
+            clear_song_caches()
             
             messages.success(request, f"Song '{title}' updated successfully!")
             return redirect('manage_songs')
@@ -460,32 +669,59 @@ def edit_song(request, song_id):
 @require_POST
 def delete_song(request, song_id):
     """Delete existing song"""
-    song = get_object_or_404(Song, id=song_id)
-    title = song.title
-    song.delete()
-    
-    messages.success(request, f"Song '{title}' deleted successfully!")
-    logger.info(f"Song '{title}' deleted by {request.user.username}")
-    return redirect('manage_songs')
+    try:
+        song = get_object_or_404(Song, id=song_id)
+        title = song.title
+        song.delete()
+        
+        # Clear relevant caches
+        clear_song_caches()
+        
+        logger.info(f"Song '{title}' deleted by {request.user.username}")
+        
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+            return JsonResponse({
+                'success': True,
+                'message': f"Song '{title}' deleted successfully!"
+            })
+        else:
+            messages.success(request, f"Song '{title}' deleted successfully!")
+            return redirect('manage_songs')
+            
+    except Exception as e:
+        logger.error(f"Error deleting song {song_id}: {e}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+            return JsonResponse({
+                'success': False,
+                'error': f"Error deleting song: {str(e)}"
+            })
+        else:
+            messages.error(request, f"Error deleting song: {str(e)}")
+            return redirect('manage_songs')
 
 
 @staff_member_required
 @ensure_csrf_cookie
 def tournament_manage(request):
     """Tournament management overview"""
-    active_sessions = VotingSession.objects.filter(status='ACTIVE').order_by('-updated_at')
+    # Combine active and abandoned sessions in one query
+    active_abandoned_sessions = VotingSession.objects.filter(
+        status__in=['ACTIVE', 'ABANDONED']
+    ).order_by('-updated_at')
+    
     completed_sessions = VotingSession.objects.filter(status='COMPLETED').order_by('-updated_at')[:10]  # Latest 10
-    abandoned_sessions = VotingSession.objects.filter(status='ABANDONED').count()
     total_songs = Song.objects.count()
     
     return render(request, 'admin/tournament_manage.html', {
-        'active_sessions': active_sessions,
+        'active_abandoned_sessions': active_abandoned_sessions,
         'completed_sessions': completed_sessions,
         'total_songs': total_songs,
         'stats': {
-            'total_active': active_sessions.count(),
+            'total_active': VotingSession.objects.filter(status='ACTIVE').count(),
             'total_completed': VotingSession.objects.filter(status='COMPLETED').count(),
-            'total_abandoned': abandoned_sessions,
+            'total_abandoned': VotingSession.objects.filter(status='ABANDONED').count(),
         }
     })
 
@@ -530,10 +766,83 @@ def session_detail(request, session_id):
     session = get_object_or_404(VotingSession, id=session_id)
     matches = Match.objects.filter(session=session).order_by('round_number', 'match_number')
     
+    # Get winner song if tournament is completed
+    winner_song = None
+    if session.status == 'COMPLETED':
+        try:
+            final_match = Match.objects.filter(
+                session=session,
+                round_number=7  # Grand Finals
+            ).first()
+            winner_song = final_match.winner if final_match else None
+        except Exception as e:
+            logger.warning(f"Error getting tournament winner: {e}")
+    
     return render(request, 'admin/session_detail.html', {
         'session': session,
-        'matches': matches
+        'matches': matches,
+        'winner_song': winner_song
     })
+
+
+@staff_member_required
+def session_detail_ajax(request, session_id):
+    """AJAX endpoint for real-time session updates"""
+    try:
+        session = get_object_or_404(VotingSession, id=session_id)
+        matches = Match.objects.filter(session=session).order_by('round_number', 'match_number')
+        
+        # Build matches data
+        matches_data = []
+        for match in matches:
+            matches_data.append({
+                'round_number': match.round_number,
+                'match_number': match.match_number,
+                'song1_title': match.song1.title,
+                'song1_original': match.song1.original_song or '',
+                'song2_title': match.song2.title,
+                'song2_original': match.song2.original_song or '',
+                'winner_title': match.winner.title if match.winner else None,
+                'winner_is_song1': match.winner == match.song1 if match.winner else None,
+            })
+        
+        # Get winner info
+        winner_song = None
+        if session.status == 'COMPLETED':
+            try:
+                final_match = Match.objects.filter(
+                    session=session,
+                    round_number=7
+                ).first()
+                if final_match and final_match.winner:
+                    winner_song = {
+                        'title': final_match.winner.title,
+                        'original_song': final_match.winner.original_song or '',
+                        'background_image_url': final_match.winner.background_image_url,
+                        'audio_url': final_match.winner.audio_url
+                    }
+            except Exception:
+                pass
+        
+        return JsonResponse({
+            'success': True,
+            'session': {
+                'id': str(session.id),
+                'status': session.status,
+                'current_round': session.current_round,
+                'current_match': session.current_match,
+                'round_name': session.get_round_name(),
+                'match_progress': session.get_match_progress(),
+                'updated_at': session.updated_at.isoformat()
+            },
+            'matches': matches_data,
+            'winner_song': winner_song,
+            'total_matches': len(matches_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in session_detail_ajax: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @staff_member_required
@@ -552,21 +861,49 @@ def upload_csv(request):
             return render(request, 'admin/upload_csv.html')
         
         try:
-            # Read CSV file
+            # Read CSV file with robust parsing for Google Sheets exports
             file_data = csv_file.read().decode('utf-8')
             csv_data = io.StringIO(file_data)
-            reader = csv.DictReader(csv_data)
+            
+            # Try to detect the CSV format
+            sample = file_data[:1024]
+            sniffer = csv.Sniffer()
+            
+            try:
+                # Try to detect the dialect
+                dialect = sniffer.sniff(sample, delimiters=',')
+                csv_data.seek(0)
+                reader = csv.DictReader(csv_data, dialect=dialect)
+            except csv.Error:
+                # If dialect detection fails, use a flexible approach
+                csv_data.seek(0)
+                # Use QUOTE_MINIMAL which handles unquoted fields better
+                reader = csv.DictReader(csv_data, 
+                                      quoting=csv.QUOTE_MINIMAL,
+                                      skipinitialspace=True)
             
             # Validate required columns
             required_columns = ['title', 'audio_url']
-            if not all(col in reader.fieldnames for col in required_columns):
-                messages.error(request, f"CSV must contain columns: {', '.join(required_columns)}. Optional: original_song, background_image_url")
+            fieldnames = reader.fieldnames or []
+            
+            # Log detected fieldnames for debugging
+            logger.info(f"CSV upload - Detected columns: {fieldnames}")
+            
+            if not all(col in fieldnames for col in required_columns):
+                missing_cols = [col for col in required_columns if col not in fieldnames]
+                available_cols = ', '.join(fieldnames) if fieldnames else 'None detected'
+                messages.error(request, 
+                              f"CSV must contain columns: {', '.join(required_columns)}. "
+                              f"Missing: {', '.join(missing_cols)}. "
+                              f"Available columns: {available_cols}. "
+                              f"Optional: original_song, background_image_url")
                 return render(request, 'admin/upload_csv.html')
             
             # Process rows
             created_count = 0
             error_count = 0
             errors = []
+            processed_songs = set()  # Track songs in this CSV to prevent within-file duplicates
             
             with transaction.atomic():
                 for row_num, row in enumerate(reader, start=2):  # Start at 2 since row 1 is headers
@@ -587,6 +924,32 @@ def upload_csv(request):
                         continue
                     
                     try:
+                        # Create a key for tracking duplicates within this CSV
+                        song_key = (title.lower(), original_song.lower())
+                        
+                        # Check for duplicates within this CSV file
+                        if song_key in processed_songs:
+                            if original_song:
+                                errors.append(f"Row {row_num}: '{title}' (Original: {original_song}) - Duplicate within this CSV file")
+                            else:
+                                errors.append(f"Row {row_num}: '{title}' - Duplicate within this CSV file")
+                            error_count += 1
+                            continue
+                        
+                        # Check for duplicates in existing database
+                        is_duplicate, existing_song = check_duplicate_song(title, original_song)
+                        if is_duplicate:
+                            if original_song:
+                                errors.append(f"Row {row_num}: '{title}' (Original: {original_song}) - Song already exists in database")
+                            else:
+                                errors.append(f"Row {row_num}: '{title}' - Song already exists in database")
+                            error_count += 1
+                            continue
+                        
+                        # Convert Google Drive URLs to proper format
+                        audio_url = convert_google_drive_url(audio_url, 'audio')
+                        background_image_url = convert_google_drive_url(background_image_url, 'image')
+                        
                         # Create song
                         song = Song.objects.create(
                             title=title,
@@ -594,6 +957,9 @@ def upload_csv(request):
                             audio_url=audio_url,
                             background_image_url=background_image_url
                         )
+                        
+                        # Mark this song as processed to prevent duplicates within this CSV
+                        processed_songs.add(song_key)
                         created_count += 1
                         
                     except IntegrityError as e:
@@ -603,21 +969,45 @@ def upload_csv(request):
                         errors.append(f"Row {row_num}: {title} - {str(e)}")
                         error_count += 1
             
+            # Clear relevant caches if songs were added
+            if created_count > 0:
+                clear_song_caches()
+            
             # Show results
             if created_count > 0:
                 messages.success(request, f"Successfully uploaded {created_count} songs.")
             
             if error_count > 0:
-                error_msg = f"Failed to upload {error_count} songs."
-                if len(errors) <= 10:
-                    error_msg += " Errors: " + "; ".join(errors)
-                else:
-                    error_msg += f" First 10 errors: " + "; ".join(errors[:10])
-                messages.error(request, error_msg)
+                # Categorize errors for better reporting
+                duplicate_errors = [e for e in errors if 'Duplicate' in e or 'already exists' in e]
+                other_errors = [e for e in errors if e not in duplicate_errors]
+                
+                if duplicate_errors:
+                    dup_count = len(duplicate_errors)
+                    dup_msg = f"Skipped {dup_count} duplicate song(s)."
+                    if dup_count <= 5:
+                        dup_msg += " " + "; ".join(duplicate_errors)
+                    else:
+                        dup_msg += f" First 5: " + "; ".join(duplicate_errors[:5])
+                    messages.warning(request, dup_msg)
+                
+                if other_errors:
+                    error_msg = f"Failed to upload {len(other_errors)} song(s) due to errors."
+                    if len(other_errors) <= 5:
+                        error_msg += " Errors: " + "; ".join(other_errors)
+                    else:
+                        error_msg += f" First 5 errors: " + "; ".join(other_errors[:5])
+                    messages.error(request, error_msg)
             
             if created_count > 0:
                 return redirect('manage_songs')
                 
+        except UnicodeDecodeError as e:
+            logger.error(f"CSV file encoding error: {e}")
+            messages.error(request, "Error reading CSV file. Please ensure the file is saved as UTF-8 encoding.")
+        except csv.Error as e:
+            logger.error(f"CSV parsing error: {e}")
+            messages.error(request, f"Error parsing CSV file: {str(e)}. Please check the file format and ensure proper CSV structure.")
         except Exception as e:
             logger.error(f"Error processing CSV upload: {e}")
             messages.error(request, f"Error processing CSV file: {str(e)}")

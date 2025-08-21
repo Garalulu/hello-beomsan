@@ -59,7 +59,7 @@
                     </div>
                     <div class="col-md-6">
                         <strong>Last Updated:</strong>
-                        <div class="mt-1">{{ session.updated_at|date:"M d, Y H:i" }}</div>
+                        <div class="mt-1" data-last-updated>{{ session.updated_at|date:"M d, Y H:i" }}</div>
                     </div>
                 </div>
                 {% if session.status == 'ACTIVE' %}
@@ -72,7 +72,7 @@
                     </div>
                     <div class="col-md-6">
                         <strong>Progress:</strong>
-                        <div class="mt-1">{{ session.get_match_progress }}</div>
+                        <div class="mt-1" data-progress>{{ session.get_match_progress }}</div>
                     </div>
                 </div>
                 {% endif %}
@@ -110,18 +110,26 @@
             <div class="card-header">
                 <h5><i class="fas fa-list"></i> Match History</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="match-history-container">
                 {% if matches %}
                 {% regroup matches by round_number as round_groups %}
                 {% for round_group in round_groups %}
                 <div class="mb-4">
                     <h6 class="border-bottom pb-2">
-                        {% if round_group.grouper == 1 %}
-                            <i class="fas fa-trophy text-warning"></i> Final
-                        {% elif round_group.grouper == 2 %}
-                            <i class="fas fa-medal text-silver"></i> Semi-Final
+                        {% if round_group.grouper == 7 %}
+                            <i class="fas fa-crown text-warning"></i> Grand-Finals
+                        {% elif round_group.grouper == 6 %}
+                            <i class="fas fa-trophy text-warning"></i> Finals
+                        {% elif round_group.grouper == 5 %}
+                            <i class="fas fa-medal text-secondary"></i> Semi-Finals
+                        {% elif round_group.grouper == 4 %}
+                            <i class="fas fa-award text-warning"></i> Quarter-Finals
                         {% elif round_group.grouper == 3 %}
-                            <i class="fas fa-award text-bronze"></i> Quarter-Final
+                            <i class="fas fa-circle text-info"></i> Round of 16
+                        {% elif round_group.grouper == 2 %}
+                            <i class="fas fa-circle text-success"></i> Round of 32
+                        {% elif round_group.grouper == 1 %}
+                            <i class="fas fa-circle text-primary"></i> Round of 64
                         {% else %}
                             <i class="fas fa-circle"></i> Round {{ round_group.grouper }}
                         {% endif %}
@@ -197,6 +205,245 @@
 
 {% block extra_js %}
 <script>
+// Real-time session updates
+let sessionData = {
+    id: '{{ session.id }}',
+    last_updated: '{{ session.updated_at.isoformat }}',
+    total_matches: {{ matches.count }}
+};
+
+let updateInterval;
+let isPageVisible = true;
+
+// Track page visibility to pause updates when page is hidden
+document.addEventListener('visibilitychange', function() {
+    isPageVisible = !document.hidden;
+    if (isPageVisible) {
+        console.log('👁️ Page visible - resuming updates');
+        startRealTimeUpdates();
+    } else {
+        console.log('👀 Page hidden - pausing updates');
+        stopRealTimeUpdates();
+    }
+});
+
+function startRealTimeUpdates() {
+    // Clear existing interval
+    if (updateInterval) {
+        clearInterval(updateInterval);
+    }
+    
+    // Update every 3 seconds
+    updateInterval = setInterval(checkForUpdates, 3000);
+    console.log('🔄 Real-time updates started');
+}
+
+function stopRealTimeUpdates() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
+    console.log('⏹️ Real-time updates stopped');
+}
+
+async function checkForUpdates() {
+    if (!isPageVisible) return;
+    
+    try {
+        console.log('🔄 Checking for updates...');
+        const response = await fetch('{% url "session_detail_ajax" session.id %}', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        console.log('📡 AJAX response:', data);
+        
+        if (!data.success) {
+            console.warn('❌ Update failed:', data.error);
+            return;
+        }
+        
+        // Check if there are updates
+        const hasUpdates = (
+            data.session.updated_at !== sessionData.last_updated ||
+            data.total_matches !== sessionData.total_matches
+        );
+        
+        if (hasUpdates) {
+            console.log('🆕 Updates detected:', {
+                old_matches: sessionData.total_matches,
+                new_matches: data.total_matches,
+                old_updated: sessionData.last_updated,
+                new_updated: data.session.updated_at
+            });
+            
+            updateSessionInfo(data.session);
+            updateMatchHistory(data.matches);
+            updateWinnerInfo(data.winner_song);
+            
+            // Show notification before updating tracking data
+            const newMatches = data.total_matches - sessionData.total_matches;
+            showUpdateNotification(newMatches);
+            
+            // Update tracking data
+            sessionData.last_updated = data.session.updated_at;
+            sessionData.total_matches = data.total_matches;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error checking for updates:', error);
+    }
+}
+
+function updateSessionInfo(session) {
+    // Update current round and progress
+    const currentRoundElement = document.querySelector('.badge.bg-primary');
+    if (currentRoundElement) {
+        currentRoundElement.textContent = session.round_name;
+    }
+    
+    const progressElement = document.querySelector('[data-progress]');
+    if (progressElement) {
+        progressElement.textContent = session.match_progress;
+    }
+    
+    // Update last updated time
+    const lastUpdatedElement = document.querySelector('[data-last-updated]');
+    if (lastUpdatedElement) {
+        const date = new Date(session.updated_at);
+        lastUpdatedElement.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+}
+
+function updateMatchHistory(matches) {
+    const matchHistoryContainer = document.getElementById('match-history-container');
+    if (!matchHistoryContainer) {
+        console.error('❌ Match history container not found');
+        return;
+    }
+    
+    // Group matches by round
+    const roundGroups = {};
+    matches.forEach(match => {
+        if (!roundGroups[match.round_number]) {
+            roundGroups[match.round_number] = [];
+        }
+        roundGroups[match.round_number].push(match);
+    });
+    
+    // Generate new HTML
+    let html = '';
+    
+    if (matches.length === 0) {
+        html = `
+            <div class="text-center py-4">
+                <i class="fas fa-list fa-3x text-muted mb-3"></i>
+                <h5>No Matches Found</h5>
+                <p class="text-muted">This session has no match history.</p>
+            </div>
+        `;
+    } else {
+        Object.keys(roundGroups).sort((a, b) => a - b).forEach(roundNumber => {
+            const roundMatches = roundGroups[roundNumber];
+            const roundName = getRoundName(parseInt(roundNumber));
+            
+            html += `
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2">${roundName}</h6>
+                    <div class="row">
+            `;
+            
+            roundMatches.forEach(match => {
+                html += `
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="card border-light">
+                            <div class="card-body p-3">
+                                <div class="row g-1">
+                                    <div class="col-5">
+                                        <div class="text-center p-2 ${match.winner_is_song1 ? 'bg-success text-white' : ''} rounded">
+                                            <div class="fw-bold">${truncateString(match.song1_title, 15)}</div>
+                                            ${match.song1_original ? `<small class="d-none d-sm-block">${truncateString(match.song1_original, 12)}</small>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="col-2 text-center align-self-center px-1">
+                                        <small class="fw-bold">VS</small>
+                                    </div>
+                                    <div class="col-5">
+                                        <div class="text-center p-2 ${match.winner_is_song1 === false ? 'bg-success text-white' : ''} rounded">
+                                            <div class="fw-bold">${truncateString(match.song2_title, 15)}</div>
+                                            ${match.song2_original ? `<small class="d-none d-sm-block">${truncateString(match.song2_original, 12)}</small>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                ${match.winner_title ? `
+                                    <div class="text-center mt-2">
+                                        <small class="text-muted">Winner: <strong>${match.winner_title}</strong></small>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+        });
+    }
+    
+    // Update the match history content
+    matchHistoryContainer.innerHTML = html;
+}
+
+function getRoundName(roundNumber) {
+    const roundNames = {
+        1: '<i class="fas fa-circle text-primary"></i> Round of 64',
+        2: '<i class="fas fa-circle text-success"></i> Round of 32',
+        3: '<i class="fas fa-circle text-info"></i> Round of 16',
+        4: '<i class="fas fa-award text-warning"></i> Quarter-Finals',
+        5: '<i class="fas fa-medal text-secondary"></i> Semi-Finals',
+        6: '<i class="fas fa-trophy text-warning"></i> Finals',
+        7: '<i class="fas fa-crown text-warning"></i> Grand-Finals'
+    };
+    return roundNames[roundNumber] || `<i class="fas fa-circle"></i> Round ${roundNumber}`;
+}
+
+function truncateString(str, length) {
+    return str.length > length ? str.substring(0, length) + '...' : str;
+}
+
+function updateWinnerInfo(winnerSong) {
+    // Update winner section if tournament is completed
+    // Implementation can be added later if needed
+}
+
+function showUpdateNotification(newMatches) {
+    if (newMatches <= 0) return;
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        <strong>🔄 Session Updated!</strong><br>
+        ${newMatches} new match${newMatches > 1 ? 'es' : ''} added
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
 function testAudio(audioUrl) {
     const audio = document.getElementById('testAudio');
     audio.src = audioUrl;
@@ -209,5 +456,16 @@ function testAudio(audioUrl) {
         audio.pause();
     });
 }
+
+// Start real-time updates when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 Session detail page loaded - starting real-time updates');
+    startRealTimeUpdates();
+});
+
+// Clean up when page is unloaded
+window.addEventListener('beforeunload', function() {
+    stopRealTimeUpdates();
+});
 </script>
 {% endblock %}

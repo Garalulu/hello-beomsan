@@ -72,8 +72,13 @@
                             <div class="col-12 col-md-6 col-lg-3">
                                 <div class="d-flex flex-wrap gap-1 justify-content-md-end">
                                     <button type="button" class="btn btn-sm btn-outline-primary flex-fill flex-md-grow-0" onclick="testAudio('{{ song.audio_url }}')">
-                                        <i class="fas fa-play"></i> <span class="d-none d-sm-inline">Test</span>
+                                        <i class="fas fa-play"></i> <span class="d-none d-sm-inline">Audio</span>
                                     </button>
+                                    {% if song.background_image_url %}
+                                    <button type="button" class="btn btn-sm btn-outline-info flex-fill flex-md-grow-0" onclick="previewImage('{{ song.background_image_url }}', '{{ song.title }}')">
+                                        <i class="fas fa-image"></i> <span class="d-none d-sm-inline">Image</span>
+                                    </button>
+                                    {% endif %}
                                     <a href="{% url 'edit_song' song.id %}" class="btn btn-sm btn-outline-success flex-fill flex-md-grow-0">
                                         <i class="fas fa-edit"></i> <span class="d-none d-sm-inline">Edit</span>
                                     </a>
@@ -150,9 +155,32 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <audio id="testAudio" controls class="w-100">
-                    Your browser does not support the audio element.
-                </audio>
+                <div id="audioContainer">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">If audio doesn't play, the file may not be publicly accessible or the URL format may be incorrect.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalTitle">Preview Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="imageContainer">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">If image doesn't load, the file may not be publicly accessible or the URL format may be incorrect.</small>
+                </div>
             </div>
         </div>
     </div>
@@ -162,16 +190,101 @@
 {% block extra_js %}
 <script>
 function testAudio(audioUrl) {
-    const audio = document.getElementById('testAudio');
-    audio.src = audioUrl;
+    const container = document.getElementById('audioContainer');
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    if (audioUrl.includes('drive.google.com')) {
+        // Use iframe for Google Drive audio
+        const iframe = document.createElement('iframe');
+        iframe.src = audioUrl;
+        iframe.width = '100%';
+        iframe.height = '60';
+        iframe.frameBorder = '0';
+        iframe.allow = 'autoplay; encrypted-media';
+        iframe.className = 'audio-player google-drive-audio';
+        iframe.title = 'Audio player';
+        container.appendChild(iframe);
+    } else {
+        // Use standard audio element for other URLs
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.className = 'w-100';
+        audio.preload = 'metadata';
+        audio.innerHTML = 'Your browser does not support the audio element.';
+        
+        const source = document.createElement('source');
+        source.src = audioUrl;
+        source.type = 'audio/mpeg';
+        audio.appendChild(source);
+        
+        container.appendChild(audio);
+    }
     
     const modal = new bootstrap.Modal(document.getElementById('audioTestModal'));
     modal.show();
     
-    // Pause audio when modal is hidden
+    // Clean up when modal is hidden
     document.getElementById('audioTestModal').addEventListener('hidden.bs.modal', function () {
-        audio.pause();
+        // Stop audio/iframe by clearing container
+        container.innerHTML = '';
     });
+}
+
+function previewImage(imageUrl, songTitle) {
+    const container = document.getElementById('imageContainer');
+    const modalTitle = document.getElementById('imageModalTitle');
+    
+    // Clear previous content
+    container.innerHTML = '';
+    modalTitle.textContent = `Preview Image - ${songTitle}`;
+    
+    // Create image element
+    const img = document.createElement('img');
+    img.className = 'img-fluid rounded';
+    img.style.maxHeight = '70vh';
+    img.style.maxWidth = '100%';
+    img.alt = `Background image for ${songTitle}`;
+    
+    // Add loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'text-center';
+    loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x text-muted mb-2"></i><br><small class="text-muted">Loading image...</small>';
+    container.appendChild(loadingDiv);
+    
+    // Handle successful load
+    img.onload = function() {
+        container.innerHTML = '';
+        container.appendChild(img);
+    };
+    
+    // Handle failed load
+    img.onerror = function() {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <h5>Failed to Load Image</h5>
+                <p>The image could not be loaded. This may be due to:</p>
+                <ul class="text-start d-inline-block">
+                    <li>File is not publicly accessible</li>
+                    <li>Incorrect URL format</li>
+                    <li>CORS restrictions</li>
+                </ul>
+                <div class="mt-3">
+                    <a href="${imageUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-external-link-alt"></i> Open in New Tab
+                    </a>
+                </div>
+            </div>
+        `;
+    };
+    
+    // Start loading the image
+    img.src = imageUrl;
+    
+    const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    modal.show();
 }
 
 function deleteSong(songId, songTitle) {
@@ -182,10 +295,18 @@ function deleteSong(songId, songTitle) {
     fetch(`/game/admin/song/${songId}/delete/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert(data.message);

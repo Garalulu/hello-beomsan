@@ -149,6 +149,303 @@
 
 {% block extra_js %}
 <script>
+// Tournament Resource Cache Manager
+class TournamentCache {
+    constructor() {
+        this.imageCache = new Map();
+        this.audioCache = new Map();
+        this.preloadedImages = new Set();
+        this.preloadedAudio = new Set();
+        this.maxCacheSize = 256; // Increased to handle 128 songs + extras
+        this.tournamentCacheSize = 128; // Never cleanup tournament resources
+        this.sessionData = null;
+        this.tournamentSongIds = new Set(); // Track tournament songs
+        this.isTournamentActive = true; // Don't cleanup during tournament
+    }
+    
+    // Get all songs from session bracket data
+    async loadSessionData() {
+        try {
+            const response = await fetch('/game/api/session-songs/', {
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            if (response.ok) {
+                this.sessionData = await response.json();
+                // Track all tournament song IDs to prevent cleanup
+                this.sessionData.forEach(song => {
+                    this.tournamentSongIds.add(song.background_image_url);
+                    this.tournamentSongIds.add(song.audio_url);
+                });
+                console.log('Session data loaded:', this.sessionData.length, 'total songs');
+                console.log('Tournament cache protection enabled for', this.tournamentSongIds.size, 'resources');
+                return this.sessionData;
+            }
+        } catch (error) {
+            console.warn('Could not load session data for preloading:', error);
+        }
+        return null;
+    }
+    
+    // Preload images with lazy loading
+    preloadImages(songs, priority = false) {
+        const imagesToLoad = songs.filter(song => 
+            song.background_image_url && 
+            !this.preloadedImages.has(song.background_image_url)
+        );
+        
+        if (imagesToLoad.length === 0) return Promise.resolve();
+        
+        console.log(`Preloading ${imagesToLoad.length} images (priority: ${priority})`);
+        
+        const loadPromises = imagesToLoad.map(song => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.imageCache.set(song.background_image_url, img);
+                    this.preloadedImages.add(song.background_image_url);
+                    resolve();
+                };
+                img.onerror = () => {
+                    console.warn('Failed to preload image:', song.background_image_url);
+                    resolve(); // Don't block on errors
+                };
+                
+                // Add loading attribute for better performance
+                img.loading = priority ? 'eager' : 'lazy';
+                img.src = song.background_image_url;
+            });
+        });
+        
+        return Promise.allSettled(loadPromises);
+    }
+    
+    // Preload audio by creating hidden iframes
+    preloadAudio(songs, priority = false) {
+        const audioToLoad = songs.filter(song => 
+            song.audio_url && 
+            song.audio_url.includes('drive.google.com') &&
+            !this.preloadedAudio.has(song.audio_url)
+        );
+        
+        if (audioToLoad.length === 0) return;
+        
+        console.log(`Preloading ${audioToLoad.length} audio files (priority: ${priority})`);
+        
+        audioToLoad.forEach(song => {
+            // Create hidden iframe to trigger Google Drive caching
+            const iframe = document.createElement('iframe');
+            iframe.src = song.audio_url;
+            iframe.style.display = 'none';
+            iframe.style.width = '1px';
+            iframe.style.height = '1px';
+            iframe.style.opacity = '0';
+            iframe.style.pointerEvents = 'none';
+            
+            iframe.onload = () => {
+                this.preloadedAudio.add(song.audio_url);
+                // Remove iframe after short delay to allow caching
+                setTimeout(() => {
+                    if (iframe.parentNode) {
+                        iframe.parentNode.removeChild(iframe);
+                    }
+                }, priority ? 2000 : 5000);
+            };
+            
+            iframe.onerror = () => {
+                console.warn('Failed to preload audio:', song.audio_url);
+                if (iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                }
+            };
+            
+            // Add to page
+            document.body.appendChild(iframe);
+        });
+    }
+    
+    // Preload next round songs with priority
+    async preloadNextRoundSongs() {
+        const currentMatch = {{ debug_info.current_match }};
+        const currentRound = {{ debug_info.current_round }};
+        
+        // Calculate which songs might appear in next matches
+        const nextSongs = this.predictNextRoundSongs(currentMatch, currentRound);
+        
+        if (nextSongs.length > 0) {
+            console.log('Preloading next round songs:', nextSongs.length);
+            await this.preloadImages(nextSongs, true);
+            this.preloadAudio(nextSongs, true);
+        }
+    }
+    
+    // Predict which songs might appear in upcoming matches
+    predictNextRoundSongs(currentMatch, currentRound) {
+        // This is a simplified prediction - in a real implementation,
+        // you'd analyze the bracket structure to predict likely winners
+        const currentSongs = [
+            {
+                background_image_url: '{{ match_data.song1.background_image_url }}',
+                audio_url: '{{ match_data.song1.audio_url }}'
+            },
+            {
+                background_image_url: '{{ match_data.song2.background_image_url }}',
+                audio_url: '{{ match_data.song2.audio_url }}'
+            }
+        ];
+        
+        return currentSongs.filter(song => song.background_image_url || song.audio_url);
+    }
+    
+    // Background preloading for remaining tournament songs
+    async startBackgroundPreloading() {
+        const allSongs = await this.loadSessionData();
+        if (!allSongs) return;
+        
+        // Preload in chunks to avoid overwhelming the browser
+        const chunkSize = 10;
+        const chunks = [];
+        
+        for (let i = 0; i < allSongs.length; i += chunkSize) {
+            chunks.push(allSongs.slice(i, i + chunkSize));
+        }
+        
+        // Process chunks with delays
+        for (let i = 0; i < chunks.length; i++) {
+            setTimeout(() => {
+                this.preloadImages(chunks[i], false);
+                setTimeout(() => {
+                    this.preloadAudio(chunks[i], false);
+                }, 1000); // Delay audio preloading slightly
+            }, i * 2000); // 2 second delay between chunks
+        }
+    }
+    
+    // Clear cache if it gets too large (but protect tournament resources)
+    clearOldCache() {
+        if (this.imageCache.size > this.maxCacheSize && !this.isTournamentActive) {
+            // Only delete non-tournament resources
+            const keysToDelete = Array.from(this.imageCache.keys())
+                .filter(key => !this.tournamentSongIds.has(key))
+                .slice(0, 50);
+            
+            keysToDelete.forEach(key => {
+                this.imageCache.delete(key);
+                this.preloadedImages.delete(key);
+            });
+            
+            if (keysToDelete.length > 0) {
+                console.log('Cleared', keysToDelete.length, 'non-tournament cache entries');
+            }
+        } else if (this.isTournamentActive) {
+            console.log('🔒 Cache cleanup skipped - tournament active, protecting', this.tournamentSongIds.size, 'resources');
+        }
+    }
+    
+    // Get cache statistics
+    getCacheStats() {
+        return {
+            images_cached: this.preloadedImages.size,
+            audio_cached: this.preloadedAudio.size,
+            total_cache_size: this.imageCache.size,
+            cache_hit_rate: this.preloadedImages.size / Math.max(1, this.sessionData?.length || 1)
+        };
+    }
+    
+    // Log cache performance
+    logCachePerformance() {
+        const stats = this.getCacheStats();
+        console.log('📊 Cache Performance:', {
+            '🖼️ Images cached': stats.images_cached,
+            '🎵 Audio cached': stats.audio_cached,
+            '💾 Total cache size': stats.total_cache_size,
+            '🎯 Cache efficiency': `${(stats.cache_hit_rate * 100).toFixed(1)}%`,
+            '🔒 Tournament protection': this.isTournamentActive ? 'ACTIVE' : 'DISABLED'
+        });
+    }
+    
+    // Save cache state to localStorage for cross-page persistence
+    saveToLocalStorage() {
+        try {
+            const cacheData = {
+                preloadedImages: Array.from(this.preloadedImages),
+                preloadedAudio: Array.from(this.preloadedAudio),
+                tournamentSongIds: Array.from(this.tournamentSongIds),
+                sessionData: this.sessionData,
+                isTournamentActive: this.isTournamentActive,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('tournamentCache', JSON.stringify(cacheData));
+        } catch (error) {
+            console.warn('Could not save cache to localStorage:', error);
+        }
+    }
+    
+    // Load cache state from localStorage
+    loadFromLocalStorage() {
+        try {
+            const cacheData = JSON.parse(localStorage.getItem('tournamentCache'));
+            if (cacheData && (Date.now() - cacheData.timestamp) < 24 * 60 * 60 * 1000) { // 24 hours
+                this.preloadedImages = new Set(cacheData.preloadedImages || []);
+                this.preloadedAudio = new Set(cacheData.preloadedAudio || []);
+                this.tournamentSongIds = new Set(cacheData.tournamentSongIds || []);
+                this.sessionData = cacheData.sessionData;
+                this.isTournamentActive = cacheData.isTournamentActive !== false;
+                
+                console.log('🔄 Restored cache from localStorage:', {
+                    images: this.preloadedImages.size,
+                    audio: this.preloadedAudio.size,
+                    protected_resources: this.tournamentSongIds.size
+                });
+                return true;
+            }
+        } catch (error) {
+            console.warn('Could not load cache from localStorage:', error);
+        }
+        return false;
+    }
+    
+    // Get cached image if available
+    getCachedImage(url) {
+        return this.imageCache.get(url);
+    }
+    
+    // Check if resource is cached
+    isResourceCached(url, type = 'image') {
+        if (type === 'image') {
+            return this.preloadedImages.has(url);
+        } else if (type === 'audio') {
+            return this.preloadedAudio.has(url);
+        }
+        return false;
+    }
+}
+
+// Initialize cache manager and make it globally available
+const tournamentCache = new TournamentCache();
+
+// Make cache globally available for other pages
+window.tournamentCache = tournamentCache;
+
+// Debug: Log the match data to console
+console.log('Match data received:', {
+    session_id: '{{ match_data.session_id }}',
+    current_match: {{ debug_info.current_match }},
+    current_round: {{ debug_info.current_round }},
+    last_updated: '{{ debug_info.last_updated }}',
+    page_generated_at: '{{ debug_info.page_generated_at }}',
+    song1_id: '{{ match_data.song1.id }}',
+    song2_id: '{{ match_data.song2.id }}',
+    song1_title: '{{ match_data.song1.title }}',
+    song2_title: '{{ match_data.song2.title }}'
+});
+
+// Add visual debug info to page
+console.log('Page loaded at:', new Date().toISOString());
+console.log('URL parameters:', window.location.search);
+</script>
+<script>
 function highlightCard(cardElement) {
     cardElement.classList.add('song-card-hover');
 }
@@ -188,35 +485,42 @@ function selectSong(songId) {
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Vote response received:', data);
+            
             if (data.success) {
-                // Add winner celebration animation after 2.5s (during the main animation)
-                setTimeout(() => {
-                    const selectedCard = document.querySelector(`[data-song-id="${songId}"]`);
-                    if (selectedCard) {
-                        const side = selectedCard.dataset.selectedSide;
-                        if (side === 'left') {
-                            selectedCard.classList.add('vote-animation-winner-left');
-                        } else {
-                            selectedCard.classList.add('vote-animation-winner-right');
-                        }
-                    }
-                }, 2500);
+                console.log('Vote was successful');
+                console.log('Tournament completed:', data.completed);
+                console.log('Next match available:', !!data.next_match);
                 
-                // Navigate after the full animation completes (4s total)
+                // Navigate after animation completes (2s total)
                 setTimeout(() => {
+                    console.log('About to navigate...');
+                    console.log('Current session data:', {
+                        session_id: '{{ match_data.session_id }}',
+                        current_match: {{ debug_info.current_match }},
+                        response_data: data
+                    });
+                    
+                    // Add timestamp to force cache bust
+                    const timestamp = new Date().getTime();
+                    const voteUrl = '{% url "vote" %}';
+                    const cacheBustUrl = `${voteUrl}?t=${timestamp}`;
+                    
                     if (data.completed) {
-                        // Tournament completed
-                        window.location.href = '{% url "vote" %}';
+                        console.log('Navigating to completion page with cache bust');
+                        window.location.href = cacheBustUrl;
                     } else if (data.next_match) {
-                        // Move to next match
-                        window.location.href = '{% url "vote" %}';
+                        console.log('Navigating to next match with cache bust');
+                        console.log('Expected next match data:', data.next_match);
+                        window.location.href = cacheBustUrl;
                     } else {
-                        // Something went wrong
+                        console.log('No next match available - error condition');
                         alert('Error: No next match available');
                         window.location.href = '{% url "home" %}';
                     }
-                }, 4000);
+                }, 2000);
             } else {
+                console.error('Vote failed:', data.error);
                 alert('Error casting vote: ' + data.error);
                 resetVotingState();
             }
@@ -286,8 +590,7 @@ function resetVotingState() {
     const animationClasses = [
         'vote-animation-selected-left', 'vote-animation-selected-right',
         'vote-animation-unselected-left', 'vote-animation-unselected-right', 
-        'vote-animation-vs',
-        'vote-animation-winner-left', 'vote-animation-winner-right'
+        'vote-animation-vs'
     ];
     
     document.querySelectorAll('.song-card, #vsContainer').forEach(element => {
@@ -299,7 +602,7 @@ function resetVotingState() {
     });
 }
 
-// Audio player management
+// Audio player management and cache initialization
 document.addEventListener('DOMContentLoaded', function() {
     const audioElements = document.querySelectorAll('audio');
     const iframeElements = document.querySelectorAll('iframe.google-drive-audio');
@@ -319,8 +622,50 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Note: Google Drive iframe audio doesn't provide play/pause events
-    // Users will need to manually control audio in each iframe
+    // Initialize caching system
+    console.log('Initializing tournament cache system...');
+    
+    // Try to restore cache from localStorage first
+    const cacheRestored = tournamentCache.loadFromLocalStorage();
+    
+    // Start immediate preloading for current match
+    tournamentCache.preloadNextRoundSongs();
+    
+    // Start background preloading after a short delay
+    setTimeout(() => {
+        tournamentCache.startBackgroundPreloading();
+    }, 3000); // Wait 3 seconds before starting background preloading
+    
+    // Preload current match resources with high priority
+    const currentMatchSongs = [
+        {
+            background_image_url: '{{ match_data.song1.background_image_url }}',
+            audio_url: '{{ match_data.song1.audio_url }}',
+            title: '{{ match_data.song1.title }}'
+        },
+        {
+            background_image_url: '{{ match_data.song2.background_image_url }}',
+            audio_url: '{{ match_data.song2.audio_url }}',
+            title: '{{ match_data.song2.title }}'
+        }
+    ];
+    
+    tournamentCache.preloadImages(currentMatchSongs, true);
+    tournamentCache.preloadAudio(currentMatchSongs, true);
+    
+    console.log('Cache initialization completed');
+    
+    // Periodic cache performance reporting and persistence (every 30 seconds)
+    setInterval(() => {
+        tournamentCache.logCachePerformance();
+        tournamentCache.clearOldCache(); // Clean up if needed
+        tournamentCache.saveToLocalStorage(); // Persist cache state
+    }, 30000);
+    
+    // Save cache when leaving page
+    window.addEventListener('beforeunload', () => {
+        tournamentCache.saveToLocalStorage();
+    });
 });
 
 // Keyboard shortcuts

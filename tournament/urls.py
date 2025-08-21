@@ -5,6 +5,7 @@ urlpatterns = [
     path('start/', views.start_game, name='start_game'),
     path('vote/', views.vote, name='vote'),
     path('cast-vote/', views.cast_vote, name='cast_vote'),
+    path('api/session-songs/', views.session_songs_api, name='session_songs_api'),
     path('stats/', views.song_stats, name='song_stats'),
     
     # Admin paths
@@ -18,6 +19,7 @@ urlpatterns = [
     path('admin/tournaments/', views.tournament_manage, name='tournament_manage'),
     path('admin/tournaments/history/', views.tournament_history, name='tournament_history'),
     path('admin/session/<uuid:session_id>/', views.session_detail, name='session_detail'),
+    path('admin/session/<uuid:session_id>/ajax/', views.session_detail_ajax, name='session_detail_ajax'),
     
     # User management
     path('admin/users/', views.user_manage, name='user_manage'),

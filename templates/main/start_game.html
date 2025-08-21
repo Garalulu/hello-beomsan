@@ -14,9 +14,11 @@
                 <p>You have an unfinished voting session. Would you like to continue where you left off or start fresh?</p>
                 
                 <div class="mb-3">
-                    <strong>Progress:</strong> Round {{ existing_session.current_round }}, Match {{ existing_session.current_match }}
+                    <strong>Progress:</strong> {{ existing_session.get_round_name }}, Match {{ existing_session.get_match_progress }}
                     <br>
                     <small class="text-muted">Started {{ existing_session.created_at|timesince }} ago</small>
+                    <br>
+                    <small class="text-muted">Last played {{ existing_session.updated_at|timesince }} ago</small>
                 </div>
 
                 <form method="post">

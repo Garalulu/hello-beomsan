@@ -184,6 +184,96 @@
 
 {% block extra_js %}
 <script>
-// Stats page - no audio controls needed
+// Stats page with cache integration
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 Stats page loaded');
+    
+    // Show cache status if available
+    if (window.tournamentCache) {
+        const stats = window.tournamentCache.getCacheStats();
+        console.log('🎯 Tournament cache status:', stats);
+        
+        // Add cache status indicator to page
+        const cacheIndicator = document.createElement('div');
+        cacheIndicator.className = 'alert alert-info mt-3';
+        cacheIndicator.innerHTML = `
+            <h6><i class="fas fa-database"></i> Tournament Cache Status</h6>
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Images Cached:</strong> ${stats.images_cached} songs
+                </div>
+                <div class="col-md-4">
+                    <strong>Audio Cached:</strong> ${stats.audio_cached} songs  
+                </div>
+                <div class="col-md-4">
+                    <strong>Tournament Active:</strong> ${stats.tournament_active ? '✅ Yes' : '❌ No'}
+                </div>
+            </div>
+            <small class="text-muted">Cached resources load instantly during tournaments</small>
+        `;
+        
+        // Insert after the existing statistics info
+        const statsInfo = document.querySelector('.alert.alert-info');
+        if (statsInfo) {
+            statsInfo.parentNode.insertBefore(cacheIndicator, statsInfo.nextSibling);
+        }
+        
+        // Enhance images with cache indicators
+        const songImages = document.querySelectorAll('img[src*="drive.google.com"]');
+        songImages.forEach(img => {
+            const isCached = window.tournamentCache.isResourceCached(img.src, 'image');
+            if (isCached) {
+                // Add cache indicator
+                const indicator = document.createElement('span');
+                indicator.className = 'badge bg-success position-absolute top-0 end-0 m-1';
+                indicator.innerHTML = '<i class="fas fa-check"></i> Cached';
+                indicator.style.fontSize = '0.7em';
+                indicator.title = 'This image is cached and will load instantly';
+                
+                // Make parent relative if not already
+                const parent = img.closest('.position-relative') || img.parentElement;
+                if (!parent.classList.contains('position-relative')) {
+                    parent.classList.add('position-relative');
+                }
+                parent.appendChild(indicator);
+                
+                // Add visual enhancement for cached images
+                img.style.border = '2px solid #28a745';
+                img.style.boxShadow = '0 0 5px rgba(40, 167, 69, 0.3)';
+            }
+        });
+        
+    } else {
+        console.log('ℹ️ No tournament cache available on stats page');
+    }
+    
+    // Add lazy loading enhancement for non-cached images
+    const allImages = document.querySelectorAll('img[loading="lazy"]');
+    allImages.forEach(img => {
+        img.addEventListener('load', function() {
+            this.style.opacity = '1';
+            this.style.transition = 'opacity 0.3s ease';
+        });
+        
+        img.addEventListener('error', function() {
+            this.style.opacity = '0.5';
+            this.alt = 'Image failed to load';
+        });
+    });
+});
+
+// Add function to clear tournament cache (admin function)
+function clearTournamentCache() {
+    if (confirm('Are you sure you want to clear the tournament cache? This will remove all cached images and audio.')) {
+        localStorage.removeItem('tournamentCache');
+        if (window.tournamentCache) {
+            delete window.tournamentCache;
+        }
+        location.reload();
+    }
+}
+
+// Make function available globally for console debugging
+window.clearTournamentCache = clearTournamentCache;
 </script>
 {% endblock %}

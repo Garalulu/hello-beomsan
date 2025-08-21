@@ -63,19 +63,20 @@
     </div>
 </div>
 
-<!-- Active Sessions -->
+<!-- Active & Abandoned Sessions -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-play-circle text-primary"></i> Active Sessions ({{ active_sessions.count }})</h5>
+                <h5><i class="fas fa-list"></i> Current Sessions ({{ active_abandoned_sessions.count }})</h5>
             </div>
             <div class="card-body">
-                {% if active_sessions %}
+                {% if active_abandoned_sessions %}
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>Status</th>
                                 <th>User</th>
                                 <th>Round</th>
                                 <th>Match Progress</th>
@@ -85,8 +86,19 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for session in active_sessions %}
-                            <tr>
+                            {% for session in active_abandoned_sessions %}
+                            <tr{% if session.status == 'ABANDONED' %} class="table-warning"{% endif %}>
+                                <td>
+                                    {% if session.status == 'ACTIVE' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-play"></i> Active
+                                        </span>
+                                    {% elif session.status == 'ABANDONED' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-times"></i> Abandoned
+                                        </span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if session.user %}
                                         <i class="fas fa-user"></i> {{ session.user.username }}
@@ -99,20 +111,28 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-primary">{{ session.get_round_name }}</span>
+                                    {% if session.status == 'ACTIVE' %}
+                                        <span class="badge bg-primary">{{ session.get_round_name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ session.get_round_name }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>
-                                    {{ session.get_match_progress }}
-                                    <div class="progress mt-1" style="height: 5px;">
-                                        {% with progress=session.calculate_progress %}
-                                        <div class="progress-bar" role="progressbar" style="width: {{ progress.percentage }}%"></div>
-                                        {% endwith %}
-                                    </div>
+                                    {% if session.status == 'ACTIVE' %}
+                                        {{ session.get_match_progress }}
+                                        <div class="progress mt-1" style="height: 5px;">
+                                            {% with progress=session.calculate_progress %}
+                                            <div class="progress-bar" role="progressbar" style="width: {{ progress.percentage }}%"></div>
+                                            {% endwith %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">{{ session.get_match_progress }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>{{ session.created_at|date:"M d, H:i" }}</td>
                                 <td>{{ session.updated_at|date:"M d, H:i" }}</td>
                                 <td>
-                                    <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{% url 'session_detail' session.id %}" class="btn btn-sm {% if session.status == 'ACTIVE' %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}">
                                         <i class="fas fa-eye"></i> View
                                     </a>
                                 </td>
@@ -123,9 +143,9 @@
                 </div>
                 {% else %}
                 <div class="text-center py-4">
-                    <i class="fas fa-play-circle fa-3x text-muted mb-3"></i>
-                    <h5>No Active Sessions</h5>
-                    <p class="text-muted">All tournaments are either completed or abandoned.</p>
+                    <i class="fas fa-list fa-3x text-muted mb-3"></i>
+                    <h5>No Current Sessions</h5>
+                    <p class="text-muted">No active or abandoned tournaments found.</p>
                 </div>
                 {% endif %}
             </div>
