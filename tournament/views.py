@@ -789,8 +789,10 @@ def session_detail(request, session_id):
 def session_detail_ajax(request, session_id):
     """AJAX endpoint for real-time session updates"""
     try:
+        # Force refresh from database to get latest data
         session = get_object_or_404(VotingSession, id=session_id)
-        matches = Match.objects.filter(session=session).order_by('round_number', 'match_number')
+        session.refresh_from_db()
+        matches = Match.objects.filter(session=session).select_related('song1', 'song2', 'winner').order_by('round_number', 'match_number')
         
         # Build matches data
         matches_data = []
