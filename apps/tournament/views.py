@@ -137,15 +137,33 @@ def convert_google_drive_url(url, url_type='view'):
 def clear_song_caches():
     """Clear all song-related caches"""
     from django.core.cache import cache
-    cache.delete_many([
+    
+    # Clear specific song-related caches
+    cache_keys_to_clear = [
         'home_stats_total_songs',
-        'completed_tournaments_count'
-    ])
-    # Clear song stats cache patterns
-    cache_patterns = ['song_stats_*']
+        'home_stats_total_votes', 
+        'completed_tournaments_count',
+        'song_stats_all',
+        'song_stats_wins',
+        'song_stats_picks',
+        'song_stats_winrate'
+    ]
+    
+    cache.delete_many(cache_keys_to_clear)
+    
+    # Clear song stats cache patterns if supported
+    cache_patterns = ['song_stats_*', 'home_stats_*']
     for pattern in cache_patterns:
         if hasattr(cache, 'delete_pattern'):
             cache.delete_pattern(pattern)
+    
+    # Force clear the entire cache if patterns aren't supported (for development)
+    if not hasattr(cache, 'delete_pattern'):
+        try:
+            cache.clear()
+            logger.info("Cleared entire cache due to song deletion")
+        except Exception as e:
+            logger.warning(f"Could not clear cache: {e}")
 
 
 def check_duplicate_song(title, original_song=None):
@@ -692,16 +710,26 @@ def manage_songs(request):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
-        return render(request, 'pages/admin/manage_songs.html', {
+        response = render(request, 'pages/admin/manage_songs.html', {
             'page_obj': page_obj
         })
+        # Add cache-busting headers to ensure fresh data
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error in manage_songs view: {type(e).__name__}: {str(e)}")
         messages.error(request, "Unable to load songs management page.")
-        return render(request, 'pages/admin/manage_songs.html', {
+        response = render(request, 'pages/admin/manage_songs.html', {
             'page_obj': None
         })
+        # Add cache-busting headers to ensure fresh data
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
 
 
 @staff_member_required
@@ -780,7 +808,12 @@ def delete_song(request, song_id):
             })
         else:
             messages.success(request, f"Song '{title}' deleted successfully!")
-            return redirect('manage_songs')
+            response = redirect('manage_songs')
+            # Add cache-busting headers to force refresh
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
             
     except Exception as e:
         logger.error(f"Error deleting song {song_id}: {e}")
@@ -792,7 +825,12 @@ def delete_song(request, song_id):
             })
         else:
             messages.error(request, f"Error deleting song: {str(e)}")
-            return redirect('manage_songs')
+            response = redirect('manage_songs')
+            # Add cache-busting headers to force refresh
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
 
 
 @staff_member_required
