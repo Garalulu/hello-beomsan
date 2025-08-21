@@ -18,6 +18,7 @@ import logging
 import csv
 import io
 import re
+import time
 
 # Security validation functions
 def validate_url(url):
@@ -68,7 +69,7 @@ def get_client_ip(request):
     return ip
 
 def rate_limit(max_requests=60, window=60):
-    """Simple rate limiting decorator"""
+    """Tournament-aware rate limiting decorator"""
     def decorator(view_func):
         def wrapper(request, *args, **kwargs):
             client_ip = get_client_ip(request)
@@ -77,10 +78,41 @@ def rate_limit(max_requests=60, window=60):
             # Get current request count
             requests = cache.get(cache_key, 0)
             
+            # Enhanced rate limiting for cast_vote
+            if view_func.__name__ == 'cast_vote':
+                # Check for velocity-based abuse (>2 votes per second)
+                velocity_key = f'vote_velocity:{client_ip}'
+                recent_votes = cache.get(velocity_key, [])
+                current_time = time.time()
+                
+                # Remove votes older than 10 seconds
+                recent_votes = [vote_time for vote_time in recent_votes if current_time - vote_time < 10]
+                
+                # Check if voting too fast (more than 2 votes in last 2 seconds)
+                very_recent = [vote_time for vote_time in recent_votes if current_time - vote_time < 2]
+                if len(very_recent) >= 2:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Voting too fast. Please wait a moment between votes.'
+                    }, status=429)
+                
+                # Add current vote time and update cache
+                recent_votes.append(current_time)
+                cache.set(velocity_key, recent_votes, 60)  # Keep for 1 minute
+            
+            # Standard rate limiting
             if requests >= max_requests:
+                remaining_time = cache.ttl(cache_key)  # Time until reset
+                if remaining_time <= 0:
+                    remaining_time = window
+                
+                error_message = f'Rate limit exceeded. You can vote again in {remaining_time // 60}m {remaining_time % 60}s.'
+                if view_func.__name__ == 'cast_vote':
+                    error_message = f'Tournament vote limit reached ({max_requests} votes per {window//60} minutes). Please wait {remaining_time // 60}m {remaining_time % 60}s to continue.'
+                
                 return JsonResponse({
                     'success': False,
-                    'error': 'Rate limit exceeded. Please try again later.'
+                    'error': error_message
                 }, status=429)
             
             # Increment counter
@@ -349,6 +381,7 @@ def start_game(request):
 
 
 @ensure_csrf_cookie
+@rate_limit(max_requests=200, window=600)  # Allow frequent page loads during tournament
 def vote(request):
     """Main voting interface"""
     try:
@@ -424,7 +457,7 @@ def vote(request):
 
 @require_POST
 @ensure_csrf_cookie
-@rate_limit(max_requests=30, window=60)  # Limit voting to prevent abuse
+@rate_limit(max_requests=150, window=600)  # Allow tournament completion (127 votes + buffer over 10 minutes)
 def cast_vote(request):
     """Handle vote submission via AJAX"""
     try:
@@ -467,6 +500,17 @@ def cast_vote(request):
                     'error': 'Not authorized for this session'
                 })
         
+        # Check per-session vote limits (prevent excessive voting on single session)
+        session_vote_key = f'session_votes:{session.id}'
+        session_votes = cache.get(session_vote_key, 0)
+        
+        # A complete tournament needs 127 votes, so limit to 130 as safety buffer
+        if session_votes >= 130:
+            return JsonResponse({
+                'success': False,
+                'error': 'Session vote limit exceeded. This may indicate unusual voting activity.'
+            })
+
         # Cast vote
         try:
             success = VotingSessionService.cast_vote(session, chosen_song_id)
@@ -475,6 +519,10 @@ def cast_vote(request):
                     'success': False,
                     'error': 'Failed to cast vote'
                 })
+            
+            # Increment session vote counter (expires when session would typically complete)
+            cache.set(session_vote_key, session_votes + 1, 3600)  # 1 hour expiry
+            
         except Exception as e:
             logger.error(f"Error casting vote: {e}")
             return JsonResponse({
