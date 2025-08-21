@@ -8,14 +8,15 @@ fuse:
 data:
   dir: "/var/lib/litefs"
 
-# Lease configuration for Fly.io
+# Lease configuration for Fly.io - Force primary
 lease:
   type: "consul"
   advertise-url: "http://${HOSTNAME}:20202"
-  candidate: ${FLY_REGION == PRIMARY_REGION}
+  candidate: true  # Force this machine to be a candidate
+  promote: true    # Auto-promote to primary
   consul:
     url: "${FLY_CONSUL_URL}"
-    key: "litefs/${FLY_APP_NAME}-v3"
+    key: "litefs/${FLY_APP_NAME}-primary"  # New key to force fresh start
 
 # HTTP server for LiteFS management
 http:
