@@ -11,6 +11,8 @@ A Django web application for song tournament voting system inspired by piku.co.k
 - **Google Drive Storage**: Audio and background images stored on Google Drive
 - **Real-time Statistics**: Song win rates and pick rates tracking
 - **Admin Interface**: Add and manage songs with staff privileges
+- **Modern Django Architecture**: Apps, config, core services separation
+- **Component-based Templates**: Reusable UI components and organized structure
 
 ## Tech Stack
 
@@ -52,7 +54,7 @@ dev-setup.bat
    # or source .venv/bin/activate  # Linux/Mac
    
    # Install dependencies
-   uv pip install -r requirements.txt -r requirements-dev.txt
+   uv pip install -r requirements/base.txt -r requirements/development.txt
    ```
 
 3. **Set up environment variables**
@@ -66,8 +68,8 @@ dev-setup.bat
 
 4. **Run migrations and start server**
    ```bash
-   python manage.py migrate
-   python manage.py runserver
+   python manage.py migrate --settings=config.settings.development
+   python manage.py runserver --settings=config.settings.development
    ```
 
 #### Development Commands
@@ -148,35 +150,69 @@ For audio/image files:
 
 ```
 hello-beomsan/
-├── tournament/          # Main app for voting logic
-│   ├── models.py       # Song, VotingSession, Match, Vote models
-│   ├── services.py     # Business logic with error handling
-│   ├── views.py        # Web views and API endpoints
-│   ├── admin.py        # Django admin configuration
-│   ├── file_handlers.py # File upload handlers (for future use)
-│   └── management/     # Custom Django commands
-├── accounts/           # osu! OAuth integration
-│   ├── services.py     # OAuth service with error handling
-│   ├── views.py        # Authentication views
-│   └── urls.py         # Auth URL patterns
-├── templates/          # HTML templates
-│   ├── main/          # Voting interface templates
-│   └── admin/         # Song management templates
-├── .github/workflows/  # GitHub Actions CI/CD
-├── dev-setup.bat      # Windows development setup script
-├── dev-start.bat      # Windows development start script
-├── Dockerfile         # Production Docker configuration
-├── Dockerfile.dev     # Development Docker configuration
-├── docker-compose.yml # Local development with Docker
-├── fly.toml          # Fly.io deployment config with LiteFS
-├── litefs.yml        # LiteFS configuration for distributed SQLite
-├── Makefile          # Development commands
-├── pyproject.toml    # Modern Python project configuration
-├── requirements.txt   # Production dependencies
-├── requirements-dev.txt # Development dependencies
-├── .env.example      # Environment variables template
-├── CLAUDE.md         # Development instructions for Claude Code
-└── README.md         # This file
+├── apps/                     # Django applications
+│   ├── tournament/          # Main app for voting logic
+│   │   ├── models.py       # Song, VotingSession, Match, Vote models
+│   │   ├── views.py        # Web views and API endpoints
+│   │   ├── admin.py        # Django admin configuration
+│   │   ├── urls.py         # Tournament URL patterns
+│   │   ├── tests.py        # Tournament app tests
+│   │   └── management/     # Custom Django commands
+│   │       └── commands/   # Import songs, promote admin
+│   └── accounts/           # osu! OAuth integration
+│       ├── models.py       # User profile model
+│       ├── views.py        # Authentication views
+│       ├── urls.py         # Auth URL patterns
+│       └── tests.py        # Authentication tests
+├── config/                  # Configuration files
+│   ├── settings/           # Environment-specific settings
+│   │   ├── base.py        # Common settings
+│   │   ├── development.py  # Development settings
+│   │   ├── production.py   # Production settings
+│   │   └── testing.py      # Test settings
+│   ├── urls.py            # Root URL configuration
+│   ├── wsgi.py            # WSGI application
+│   └── asgi.py            # ASGI application
+├── core/                   # Business logic & services
+│   ├── services/          # Business logic services
+│   │   ├── tournament_service.py # Tournament operations
+│   │   └── accounts_service.py   # OAuth services
+│   └── utils/             # Utility functions
+├── templates/              # Component-based templates
+│   ├── base/              # Base templates & partials
+│   │   ├── base.html      # Main base template
+│   │   └── partials/      # Reusable template parts
+│   ├── components/        # UI components
+│   │   ├── song_card.html # Reusable song card
+│   │   ├── progress_bar.html # Progress component
+│   │   └── pagination.html # Pagination component
+│   └── pages/             # Page templates
+│       ├── main/          # Main app pages
+│       └── admin/         # Admin pages
+├── requirements/           # Environment-specific requirements
+│   ├── base.txt           # Core dependencies
+│   ├── development.txt    # Dev tools & testing
+│   ├── production.txt     # Production-specific
+│   └── testing.txt        # Testing-only deps
+├── tests/                  # Centralized testing
+│   ├── test_comprehensive.py # Comprehensive test suite
+│   ├── test_error_handling.py # Error handling tests
+│   ├── test_models_complete.py # Model tests
+│   └── test_views_complete.py # View tests
+├── .github/workflows/      # GitHub Actions CI/CD
+├── dev-setup.bat          # Windows development setup script
+├── dev-start.bat          # Windows development start script
+├── Dockerfile             # Production Docker configuration
+├── Dockerfile.dev         # Development Docker configuration
+├── docker-compose.yml     # Local development with Docker
+├── fly.toml              # Fly.io deployment config with LiteFS
+├── litefs.yml            # LiteFS configuration for distributed SQLite
+├── Makefile              # Development commands
+├── pyproject.toml        # Modern Python project configuration
+├── manage.py             # Django management
+├── .env.example          # Environment variables template
+├── CLAUDE.md             # Development instructions for Claude Code
+└── README.md             # This file
 ```
 
 ## Usage
@@ -193,7 +229,12 @@ hello-beomsan/
 
 ## Development Features
 
-- **Modern Python Setup**: pyproject.toml, uv package manager, development dependencies
+- **Modern Django Structure**: Apps, config, core services separation for maintainability
+- **Environment-specific Settings**: Development, production, and testing configurations
+- **Service Layer Pattern**: Business logic separated from views in core services
+- **Component-based Templates**: Reusable UI components and organized template structure
+- **Centralized Testing**: All tests organized in dedicated tests/ directory
+- **Modern Python Setup**: pyproject.toml, uv package manager, split requirements files
 - **Code Quality**: Black formatting, isort imports, flake8 linting, pytest testing
 - **Development Tools**: Makefile commands, automated setup scripts, .env templates
 - **Comprehensive Error Handling**: Robust error handling across all components
