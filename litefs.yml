@@ -28,4 +28,4 @@ proxy:
   db: "db.sqlite3"
 
 # Execute Django application with gunicorn
-exec: "sh -c 'export DJANGO_SETTINGS_MODULE=config.settings.production && python manage.py collectstatic --noinput && python manage.py makemigrations && python manage.py migrate && gunicorn --bind 0.0.0.0:8000 config.wsgi:application'"
+exec: "sh -c 'export DJANGO_SETTINGS_MODULE=config.settings.production && python manage.py collectstatic --noinput && python manage.py migrate --check || python manage.py migrate && python manage.py shell -c \"from django.contrib.auth.models import User; User.objects.filter(username=\\\"Garalulu\\\").exists() or User.objects.create_superuser(\\\"Garalulu\\\", \\\"\\\", \\\"defaultpassword\\\")\" 2>/dev/null || echo \"Admin user already exists\" && gunicorn --bind 0.0.0.0:8000 config.wsgi:application'"

@@ -4,15 +4,16 @@ A Django web application for song tournament voting system inspired by piku.co.k
 
 ## Features
 
-- **World Cup Style Tournament**: 128 songs randomly seeded into elimination brackets
-- **osu! OAuth Integration**: Login with osu! accounts for progress saving
-- **Anonymous Play**: Play without registration (progress not saved)
-- **Session-based Voting**: Each user gets randomly seeded tournaments
-- **Google Drive Storage**: Audio and background images stored on Google Drive
-- **Real-time Statistics**: Song win rates and pick rates tracking
-- **Admin Interface**: Add and manage songs with staff privileges
-- **Modern Django Architecture**: Apps, config, core services separation
-- **Component-based Templates**: Reusable UI components and organized structure
+- **World Cup Style Tournament**: 128 songs randomly seeded into elimination brackets with winner reshuffling between rounds
+- **osu! OAuth Integration**: Login with osu! accounts for progress saving and session recovery
+- **Anonymous Play**: Robust anonymous voting with session persistence across production environments
+- **Session-based Voting**: Each user gets randomly seeded tournaments with proper session flow management
+- **Google Drive Storage**: Audio and background images stored on Google Drive with optimized loading
+- **Real-time Statistics**: Song win rates and pick rates tracking with comprehensive user management
+- **Admin Interface**: Full CRUD operations for songs, tournament management, and user administration
+- **Enhanced Result Screen**: Winner display with background images, golden borders, and centered statistics
+- **Modern Django Architecture**: Apps, config, core services separation with proper error handling
+- **Component-based Templates**: Reusable UI components and organized template structure
 
 ## Tech Stack
 
@@ -153,7 +154,14 @@ hello-beomsan/
 ├── apps/                     # Django applications
 │   ├── tournament/          # Main app for voting logic
 │   │   ├── models.py       # Song, VotingSession, Match, Vote models
-│   │   ├── views.py        # Web views and API endpoints
+│   │   ├── views/          # Organized view modules
+│   │   │   ├── __init__.py    # Re-exports all views for compatibility
+│   │   │   ├── utils.py       # Validation, caching, security utilities
+│   │   │   ├── public.py      # Public views (home, voting, etc.)
+│   │   │   ├── stats.py       # Song statistics views
+│   │   │   ├── admin_songs.py # Song management admin views
+│   │   │   ├── admin_tournaments.py # Tournament management views
+│   │   │   └── admin_users.py # User management admin views
 │   │   ├── admin.py        # Django admin configuration
 │   │   ├── urls.py         # Tournament URL patterns
 │   │   ├── tests.py        # Tournament app tests
@@ -222,25 +230,29 @@ hello-beomsan/
 3. **Progress**: Automatic saving for logged-in users
 4. **Statistics**: View song performance metrics
 5. **Admin Features** (staff users only):
-   - Add/edit/delete songs
-   - View active tournament sessions
-   - Tournament history and statistics
-   - User management
+   - Add/edit/delete songs with Google Drive URL conversion
+   - Upload songs via CSV with comprehensive validation
+   - View active tournament sessions with real-time updates
+   - Tournament history and statistics with filtering
+   - User management with session counts and search functionality
 
 ## Development Features
 
 - **Modern Django Structure**: Apps, config, core services separation for maintainability
-- **Environment-specific Settings**: Development, production, and testing configurations
-- **Service Layer Pattern**: Business logic separated from views in core services
-- **Component-based Templates**: Reusable UI components and organized template structure
-- **Centralized Testing**: All tests organized in dedicated tests/ directory
+- **Organized Views Architecture**: Views split into focused modules (public, admin, utilities) for better maintainability
+- **Environment-specific Settings**: Development, production, and testing configurations with OAuth-compatible session handling
+- **Service Layer Pattern**: Business logic separated from views in core services with session preference management
+- **Component-based Templates**: Reusable UI components and organized template structure with enhanced result displays
+- **Centralized Testing**: All tests organized in dedicated tests/ directory with comprehensive session flow testing
 - **Modern Python Setup**: pyproject.toml, uv package manager, split requirements files
 - **Code Quality**: Black formatting, isort imports, flake8 linting, pytest testing
 - **Development Tools**: Makefile commands, automated setup scripts, .env templates
-- **Comprehensive Error Handling**: Robust error handling across all components
-- **Logging**: Detailed logging for debugging and monitoring
+- **Comprehensive Error Handling**: Robust error handling with production-friendly session recovery
+- **Logging**: Detailed logging for debugging and monitoring with OAuth state tracking
 - **CSRF Protection**: Full CSRF protection on all forms and AJAX requests
-- **Session Management**: Secure session handling for anonymous and authenticated users
+- **Session Management**: Secure session handling with cross-environment persistence for anonymous and authenticated users
+- **Input Sanitization**: Proper HTML entity handling for song name storage and display
+- **Rate Limiting**: Tournament-aware rate limiting with velocity checks and abuse prevention
 - **LiteFS Distribution**: Distributed SQLite with automatic replication and failover
 
 ## Production Features
@@ -251,6 +263,28 @@ hello-beomsan/
 - **Docker**: Containerized deployment with optimized images
 - **WhiteNoise**: Static file serving without external CDN
 - **Error Monitoring**: Comprehensive logging and error tracking
+- **Session Persistence**: Production-ready anonymous user session handling with recovery mechanisms
+- **OAuth Security**: Secure osu! OAuth integration with proper state management and session cookie configuration
+
+## Recent Improvements
+
+### 🎯 Session Management & User Experience
+- **Fixed Anonymous User Voting**: Resolved session persistence issues preventing anonymous users from completing tournaments
+- **Enhanced Session Flow**: Improved start/continue session logic with proper COMPLETED vs ACTIVE session handling
+- **OAuth State Management**: Fixed OAuth login issues in production with proper session cookie SameSite configuration
+- **Winner Reshuffling**: Implemented random reshuffling of winners between tournament rounds instead of traditional bracket order
+
+### 🎨 UI/UX Enhancements
+- **Enhanced Result Screen**: Added winner background images with golden borders matching voting card design
+- **Centered Statistics**: Improved tournament duration display with better typography and centering
+- **Fallback Design**: Beautiful gradient placeholder for songs without background images
+- **Input Sanitization**: Fixed HTML entity conversion issues (&#39; to ') in song name editing
+
+### 🛠️ Admin & Management
+- **User Management**: Fixed data display and search functionality in admin user management interface
+- **Tournament Aware Rate Limiting**: Enhanced rate limiting system allowing tournament completion while preventing abuse
+- **CSV Upload Validation**: Comprehensive validation for CSV song uploads with special character support
+- **Real-time Session Monitoring**: Improved admin dashboard with live session updates and detailed statistics
 
 ## Contributing
 

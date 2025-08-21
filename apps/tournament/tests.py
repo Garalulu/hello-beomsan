@@ -7,7 +7,7 @@ import json
 import uuid
 
 from .models import Song, VotingSession, Match, Vote, UserProfile
-from .services import VotingSessionService
+from core.services.tournament_service import VotingSessionService
 
 
 class SongModelTest(TestCase):

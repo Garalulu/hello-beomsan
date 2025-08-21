@@ -22,10 +22,20 @@ console_command = '/code/manage.py shell --settings=config.settings.production'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'suspend'  # Changed from 'stop' to 'suspend' for faster wake-up
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1  # Keep at least 1 machine running to reduce cold starts
   processes = ['app']
+  
+  # Health checks to keep app warm
+  [http_service.checks]
+    [http_service.checks.alive]
+      type = "http"
+      method = "get"
+      path = "/health/"  # Will need to create this endpoint
+      interval = "10s"
+      timeout = "2s"
+      grace_period = "5s"
 
 [[vm]]
   memory = '1gb'

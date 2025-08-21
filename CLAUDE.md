@@ -243,4 +243,4 @@ Songs use Google Drive URLs:
 - Commit and push the changes after test is finished well
 - Fix SSH console "handle is invalid" error on Windows - use GitHub Actions for deployment
 - you should use && source .venv/Scripts/activate for venv
-- please do not insert unicode imoji when testing, especially using Windows console.
+- please do not insert unicode emoji when testing, especially using Windows console.

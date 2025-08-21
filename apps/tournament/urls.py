@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views  # Views are organized in views/ package but re-exported in views/__init__.py
 
 urlpatterns = [
     path('start/', views.start_game, name='start_game'),
@@ -24,4 +24,8 @@ urlpatterns = [
     
     # User management
     path('admin/users/', views.user_manage, name='user_manage'),
+    path('admin/users/<int:user_id>/stats/', views.user_stats_ajax, name='user_stats_ajax'),
+    
+    # Health check
+    path('health/', views.health_check, name='health_check'),
 ]

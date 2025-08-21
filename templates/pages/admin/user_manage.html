@@ -205,7 +205,7 @@
 
 {% block extra_js %}
 <script>
-function viewUserSessions(username) {
+async function viewUserSessions(username) {
     const modal = new bootstrap.Modal(document.getElementById('userSessionsModal'));
     const content = document.getElementById('userSessionsContent');
     
@@ -215,18 +215,42 @@ function viewUserSessions(username) {
             <div class="spinner-border" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
+            <p class="mt-2">Loading ${username}'s tournament sessions...</p>
         </div>
     `;
     
     modal.show();
     
-    // Redirect to tournament history with user filter
-    setTimeout(() => {
-        window.location.href = "{% url 'tournament_history' %}?user=" + encodeURIComponent(username);
-    }, 500);
+    try {
+        // Load user's sessions via iframe instead of redirect
+        const sessionsUrl = "{% url 'tournament_history' %}?user=" + encodeURIComponent(username);
+        
+        content.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">${username}'s Tournament Sessions</h6>
+                <a href="${sessionsUrl}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-external-link-alt"></i> Open Full View
+                </a>
+            </div>
+            <iframe src="${sessionsUrl}" style="width: 100%; height: 400px; border: none;" 
+                    class="rounded border">
+            </iframe>
+        `;
+    } catch (error) {
+        content.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                <h6>Error Loading Sessions</h6>
+                <p class="text-muted">Unable to load tournament sessions for ${username}</p>
+                <a href="{% url 'tournament_history' %}?user=${username}" class="btn btn-primary">
+                    View in New Tab
+                </a>
+            </div>
+        `;
+    }
 }
 
-function viewUserStats(userId) {
+async function viewUserStats(userId) {
     const modal = new bootstrap.Modal(document.getElementById('userStatsModal'));
     const content = document.getElementById('userStatsContent');
     
@@ -236,21 +260,123 @@ function viewUserStats(userId) {
             <div class="spinner-border" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
+            <p class="mt-2">Loading user statistics...</p>
         </div>
     `;
     
     modal.show();
     
-    // For now, show a placeholder - you can implement detailed stats later
-    setTimeout(() => {
+    try {
+        const response = await fetch(`/game/admin/users/${userId}/stats/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
+                content.innerHTML = `
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex align-items-center mb-3">
+                                ${data.user_info.osu_username ? 
+                                    `<img src="${data.user_info.avatar_url || '/static/default-avatar.png'}" 
+                                          class="rounded-circle me-3" style="width: 48px; height: 48px;" 
+                                          alt="Avatar">` : 
+                                    '<i class="fas fa-user-circle fa-3x text-muted me-3"></i>'
+                                }
+                                <div>
+                                    <h5 class="mb-0">${data.user_info.username}</h5>
+                                    ${data.user_info.osu_username ? 
+                                        `<small class="text-muted">osu!: ${data.user_info.osu_username}</small>` :
+                                        '<small class="text-muted">Local user</small>'
+                                    }
+                                    <br><small class="text-muted">Joined: ${data.user_info.date_joined}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-3 col-6">
+                            <div class="text-center">
+                                <div class="fs-3 text-primary">${data.statistics.total_sessions}</div>
+                                <small class="text-muted">Total Sessions</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="text-center">
+                                <div class="fs-3 text-success">${data.statistics.completed_sessions}</div>
+                                <small class="text-muted">Completed</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="text-center">
+                                <div class="fs-3 text-warning">${data.statistics.active_sessions}</div>
+                                <small class="text-muted">Active</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="text-center">
+                                <div class="fs-3 text-info">${data.statistics.completion_rate}%</div>
+                                <small class="text-muted">Completion Rate</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>Recent Activity (Last 30 days)</h6>
+                            <p class="text-muted">${data.statistics.recent_sessions_30d} sessions started</p>
+                        </div>
+                    </div>
+                    
+                    ${data.recent_activity.length > 0 ? `
+                        <div class="row">
+                            <div class="col-12">
+                                <h6>Latest Sessions</h6>
+                                <div class="list-group list-group-flush">
+                                    ${data.recent_activity.map(session => `
+                                        <div class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="badge bg-${session.status === 'COMPLETED' ? 'success' : 
+                                                                               session.status === 'ACTIVE' ? 'warning' : 'secondary'} me-2">
+                                                        ${session.status}
+                                                    </span>
+                                                    ${session.round_info ? session.round_info : 'Tournament'}
+                                                </div>
+                                                <small class="text-muted">${session.created_at}</small>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    ` : '<p class="text-muted">No recent activity</p>'}
+                `;
+            } else {
+                throw new Error(data.error || 'Unknown error');
+            }
+        } else {
+            throw new Error('Failed to load statistics');
+        }
+    } catch (error) {
         content.innerHTML = `
             <div class="text-center py-4">
-                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-                <h5>Detailed User Statistics</h5>
-                <p class="text-muted">Coming soon! This will show detailed voting patterns and favorite songs.</p>
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h5>Error Loading Statistics</h5>
+                <p class="text-muted">${error.message}</p>
+                <button class="btn btn-primary" onclick="viewUserStats(${userId})">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         `;
-    }, 1000);
+    }
 }
 </script>
 {% endblock %}
