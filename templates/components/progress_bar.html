@@ -1,0 +1,28 @@
+{% comment %}
+Progress Bar Component
+Parameters:
+- progress: Progress object with completed_matches, total_matches, percentage
+- show_text: Boolean to show percentage text (optional, default: true)
+- class: Additional CSS classes (optional)
+{% endcomment %}
+
+<div class="progress {{ class|default:'' }}" style="height: 10px;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+         role="progressbar" 
+         style="width: {{ progress.percentage }}%"
+         aria-valuenow="{{ progress.percentage }}" 
+         aria-valuemin="0" 
+         aria-valuemax="100">
+        {% if show_text|default:true %}
+        {{ progress.percentage }}%
+        {% endif %}
+    </div>
+</div>
+
+{% if progress %}
+<div class="text-center mt-2">
+    <small class="text-muted">
+        Match {{ progress.completed_matches }} of {{ progress.total_matches }}
+    </small>
+</div>
+{% endif %}

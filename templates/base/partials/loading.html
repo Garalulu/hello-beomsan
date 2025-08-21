@@ -1,0 +1,19 @@
+{% comment %}
+Loading Spinner Component
+Parameters:
+- message: Loading message (optional)
+- size: Size class (optional: 'sm', 'lg')
+{% endcomment %}
+
+<div class="d-flex justify-content-center align-items-center p-4" id="loadingSpinner">
+    <div class="text-center">
+        <div class="spinner-border text-primary {% if size %}spinner-border-{{ size }}{% endif %}" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        {% if message %}
+        <div class="mt-2">
+            <small class="text-muted">{{ message|default:"Loading..." }}</small>
+        </div>
+        {% endif %}
+    </div>
+</div>

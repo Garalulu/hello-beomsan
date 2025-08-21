@@ -1,0 +1,73 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'home' %}">
+            <i class="fas fa-trophy"></i> 범제이맥스
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'home' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'start_game' %}">Start Game</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'song_stats' %}">Song Stats</a>
+                </li>
+                {% if user.is_staff %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><h6 class="dropdown-header"><i class="fas fa-music"></i> Songs</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'upload_song' %}"><i class="fas fa-plus"></i> Add Song</a></li>
+                        <li><a class="dropdown-item" href="{% url 'manage_songs' %}"><i class="fas fa-edit"></i> Manage Songs</a></li>
+                        
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-trophy"></i> Tournaments</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'tournament_manage' %}"><i class="fas fa-chart-line"></i> Tournament Dashboard</a></li>
+                        <li><a class="dropdown-item" href="{% url 'tournament_history' %}"><i class="fas fa-history"></i> Tournament History</a></li>
+                        
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-users"></i> Users</h6></li>
+                        <li><a class="dropdown-item" href="{% url 'user_manage' %}"><i class="fas fa-users-cog"></i> User Management</a></li>
+                        
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="fas fa-database"></i> Django Admin</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+            
+            <ul class="navbar-nav">
+                {% if user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user"></i> {% if user.profile %}{{ user.profile.osu_username }}{% else %}{{ user.username }}{% endif %}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <form method="post" action="{% url 'accounts:logout' %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item border-0 bg-transparent">Logout</button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'accounts:login' %}">
+                        <i class="fab fa-osu"></i> Login with osu!
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>

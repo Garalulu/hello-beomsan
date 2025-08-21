@@ -1,0 +1,222 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Song Statistics{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-chart-bar"></i> Song Statistics</h1>
+            <a href="{% url 'home' %}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Info -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> Statistics Explained</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Win Rate:</strong> Percentage of tournaments where this song was the final champion
+                </div>
+                <div class="col-md-6">
+                    <strong>Pick Rate:</strong> Percentage of individual matches won by this song
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sorting Options -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5>Sort by:</h5>
+                <div class="btn-group" role="group">
+                    <a href="?sort=win_rate" class="btn {% if sort_by == 'win_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-percentage"></i> Win Rate
+                    </a>
+                    <a href="?sort=pick_rate" class="btn {% if sort_by == 'pick_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-chart-line"></i> Pick Rate
+                    </a>
+                    <a href="?sort=tournaments" class="btn {% if sort_by == 'tournaments' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-trophy"></i> Tournament Wins
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Song Statistics Table -->
+<div class="row">
+    <div class="col-12">
+        {% for song in page_obj %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        {% if song.background_image_url %}
+                        <img src="{{ song.background_image_url }}" 
+                             class="img-fluid rounded me-3" 
+                             style="width: 80px; height: 80px; object-fit: cover;"
+                             alt="{{ song.title }}">
+                        {% else %}
+                        <div class="bg-light rounded d-flex align-items-center justify-content-center me-3" 
+                             style="width: 80px; height: 80px;">
+                            <i class="fas fa-music fa-2x text-muted"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-5">
+                        <h5 class="card-title mb-1">{{ song.title }}</h5>
+                        {% if song.original_song %}
+                        <p class="text-muted mb-0">Original: {{ song.original_song }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <div class="fw-bold text-success">{{ song.win_rate|floatformat:1 }}%</div>
+                                <small class="text-muted" title="% of tournaments won as final champion">Win Rate</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-info">{{ song.pick_rate|floatformat:1 }}%</div>
+                                <small class="text-muted" title="% of individual matches won">Pick Rate</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-warning">{{ song.tournament_wins }}</div>
+                                <small class="text-muted" title="Number of tournaments won">Tournaments</small>
+                            </div>
+                            <div class="col-3">
+                                <div class="fw-bold text-secondary">{{ song.total_picks }}</div>
+                                <small class="text-muted" title="Total matches played">Matches</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Win Rate Progress Bar -->
+                        <div class="mt-2">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ song.win_rate }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-5">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <h3>No Statistics Yet</h3>
+            <p class="text-muted">Start playing tournaments to see song statistics!</p>
+            <a href="{% url 'start_game' %}" class="btn btn-primary">
+                <i class="fas fa-play"></i> Start Your First Game
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Song statistics pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_by }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}&sort={{ sort_by }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&sort={{ sort_by }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Statistics Legend -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6>Understanding the Statistics:</h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Win Rate:</strong> Percentage of matches won when selected
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Pick Rate:</strong> How often this song appears in tournaments
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Wins:</strong> Total number of matches won
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Matches:</strong> Total number of matches played
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Stats page with cache integration
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 Stats page loaded');
+    
+    // Cache is available but status display removed for cleaner user experience
+    
+    // Add lazy loading enhancement for non-cached images
+    const allImages = document.querySelectorAll('img[loading="lazy"]');
+    allImages.forEach(img => {
+        img.addEventListener('load', function() {
+            this.style.opacity = '1';
+            this.style.transition = 'opacity 0.3s ease';
+        });
+        
+        img.addEventListener('error', function() {
+            this.style.opacity = '0.5';
+            this.alt = 'Image failed to load';
+        });
+    });
+});
+
+// Add function to clear tournament cache (admin function)
+function clearTournamentCache() {
+    if (confirm('Are you sure you want to clear the tournament cache? This will remove all cached images and audio.')) {
+        localStorage.removeItem('tournamentCache');
+        if (window.tournamentCache) {
+            delete window.tournamentCache;
+        }
+        location.reload();
+    }
+}
+
+// Make function available globally for console debugging
+window.clearTournamentCache = clearTournamentCache;
+</script>
+{% endblock %}
