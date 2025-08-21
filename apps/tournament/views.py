@@ -226,7 +226,7 @@ def home(request):
             total_songs = 0
             total_votes = 0
         
-        return render(request, 'main/home.html', {
+        return render(request, 'pages/main/home.html', {
             'active_session': active_session,
             'total_songs': total_songs,
             'total_votes': total_votes
@@ -235,7 +235,7 @@ def home(request):
     except Exception as e:
         logger.error(f"Error in home view: {type(e).__name__}: {str(e)}")
         # Return a basic error page if everything fails
-        return render(request, 'main/home.html', {
+        return render(request, 'pages/main/home.html', {
             'active_session': None,
             'total_songs': 0,
             'total_votes': 0,
@@ -320,7 +320,7 @@ def start_game(request):
             logger.warning(f"Error checking existing session: {e}")
             existing_session = None
     
-        return render(request, 'main/start_game.html', {
+        return render(request, 'pages/main/start_game.html', {
             'existing_session': existing_session
         })
         
@@ -357,7 +357,7 @@ def vote(request):
                 logger.warning(f"Error getting tournament winner: {e}")
                 winner_song = None
             
-            return render(request, 'main/completed.html', {
+            return render(request, 'pages/main/completed.html', {
                 'session': session,
                 'winner_song': winner_song
             })
@@ -377,7 +377,7 @@ def vote(request):
             return redirect('start_game')
         
         # Add debugging info and cache headers
-        response = render(request, 'main/vote.html', {
+        response = render(request, 'pages/main/vote.html', {
             'match_data': current_match,
             'session': session,
             'debug_info': {
@@ -594,7 +594,7 @@ def song_stats(request):
             total_matches = 0
             total_tournaments = 0
         
-        return render(request, 'main/stats.html', {
+        return render(request, 'pages/main/stats.html', {
             'page_obj': page_obj,
             'stats': {
                 'total_songs': total_songs,
@@ -626,11 +626,11 @@ def upload_song(request):
             # Security validation
             if not validate_url(audio_url):
                 messages.error(request, "Invalid or unauthorized audio URL domain.")
-                return render(request, 'admin/upload_song.html')
+                return render(request, 'pages/admin/upload_song.html')
                 
             if not validate_url(background_image_url):
                 messages.error(request, "Invalid or unauthorized image URL domain.")
-                return render(request, 'admin/upload_song.html')
+                return render(request, 'pages/admin/upload_song.html')
             
             # Basic validation
             if not title:
@@ -672,7 +672,7 @@ def upload_song(request):
                         logger.error(f"Error creating song: {e}")
                         messages.error(request, "An error occurred while uploading the song.")
         
-        return render(request, 'admin/upload_song.html')
+        return render(request, 'pages/admin/upload_song.html')
         
     except Exception as e:
         logger.error(f"Error in upload_song view: {type(e).__name__}: {str(e)}")
@@ -692,14 +692,14 @@ def manage_songs(request):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         
-        return render(request, 'admin/manage_songs.html', {
+        return render(request, 'pages/admin/manage_songs.html', {
             'page_obj': page_obj
         })
         
     except Exception as e:
         logger.error(f"Error in manage_songs view: {type(e).__name__}: {str(e)}")
         messages.error(request, "Unable to load songs management page.")
-        return render(request, 'admin/manage_songs.html', {
+        return render(request, 'pages/admin/manage_songs.html', {
             'page_obj': None
         })
 
@@ -720,11 +720,11 @@ def edit_song(request, song_id):
         # Security validation
         if not validate_url(audio_url):
             messages.error(request, "Invalid or unauthorized audio URL domain.")
-            return render(request, 'admin/edit_song.html', {'song': song})
+            return render(request, 'pages/admin/edit_song.html', {'song': song})
             
         if not validate_url(background_image_url):
             messages.error(request, "Invalid or unauthorized image URL domain.")
-            return render(request, 'admin/edit_song.html', {'song': song})
+            return render(request, 'pages/admin/edit_song.html', {'song': song})
         
         if title and audio_url:
             # Check for duplicates only if title or original_song changed
@@ -735,7 +735,7 @@ def edit_song(request, song_id):
                         messages.error(request, f"Song '{title}' (Original: {original_song}) already exists in the database.")
                     else:
                         messages.error(request, f"Song '{title}' already exists in the database.")
-                    return render(request, 'admin/edit_song.html', {'song': song})
+                    return render(request, 'pages/admin/edit_song.html', {'song': song})
             
             # Convert Google Drive URLs to proper format
             audio_url = convert_google_drive_url(audio_url, 'audio')
@@ -755,7 +755,7 @@ def edit_song(request, song_id):
         else:
             messages.error(request, "Title and audio URL are required.")
     
-    return render(request, 'admin/edit_song.html', {'song': song})
+    return render(request, 'pages/admin/edit_song.html', {'song': song})
 
 
 @staff_member_required
@@ -811,7 +811,7 @@ def tournament_manage(request):
     completed_sessions = VotingSession.objects.filter(status='COMPLETED').select_related('user__profile').order_by('-updated_at')[:10]  # Latest 10
     total_songs = Song.objects.count()
     
-    return render(request, 'admin/tournament_manage.html', {
+    return render(request, 'pages/admin/tournament_manage.html', {
         'active_abandoned_sessions': active_abandoned_sessions,
         'completed_sessions': completed_sessions,
         'total_songs': total_songs,
@@ -896,7 +896,7 @@ def tournament_history(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    return render(request, 'admin/tournament_history.html', {
+    return render(request, 'pages/admin/tournament_history.html', {
         'page_obj': page_obj
     })
 
@@ -913,7 +913,7 @@ def user_manage(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    return render(request, 'admin/user_manage.html', {
+    return render(request, 'pages/admin/user_manage.html', {
         'page_obj': page_obj
     })
 
@@ -937,7 +937,7 @@ def session_detail(request, session_id):
         except Exception as e:
             logger.warning(f"Error getting tournament winner: {e}")
     
-    return render(request, 'admin/session_detail.html', {
+    return render(request, 'pages/admin/session_detail.html', {
         'session': session,
         'matches': matches,
         'winner_song': winner_song
@@ -1027,11 +1027,11 @@ def upload_csv(request):
         
         if not csv_file:
             messages.error(request, "Please select a CSV file to upload.")
-            return render(request, 'admin/upload_csv.html')
+            return render(request, 'pages/admin/upload_csv.html')
         
         if not csv_file.name.endswith('.csv'):
             messages.error(request, "File must be a CSV file.")
-            return render(request, 'admin/upload_csv.html')
+            return render(request, 'pages/admin/upload_csv.html')
         
         try:
             # Read CSV file with robust parsing for Google Sheets exports
@@ -1070,7 +1070,7 @@ def upload_csv(request):
                               f"Missing: {', '.join(missing_cols)}. "
                               f"Available columns: {available_cols}. "
                               f"Optional: original_song, background_image_url")
-                return render(request, 'admin/upload_csv.html')
+                return render(request, 'pages/admin/upload_csv.html')
             
             # Process rows
             created_count = 0
@@ -1185,4 +1185,4 @@ def upload_csv(request):
             logger.error(f"Error processing CSV upload: {e}")
             messages.error(request, f"Error processing CSV file: {str(e)}")
     
-    return render(request, 'admin/upload_csv.html')
+    return render(request, 'pages/admin/upload_csv.html')
