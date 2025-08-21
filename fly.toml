@@ -10,9 +10,9 @@ console_command = '/code/manage.py shell --settings=config.settings.production'
 [build]
   dockerfile = "Dockerfile"
 
-# Release command runs migrations during deployment (not on every startup)
-[deploy]
-  release_command = 'python manage.py migrate'
+# LiteFS handles migrations in exec section
+# [deploy]
+#   release_command = 'python manage.py migrate'
 
 [env]
   PORT = '8000'
