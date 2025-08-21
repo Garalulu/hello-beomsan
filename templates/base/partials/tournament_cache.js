@@ -24,6 +24,34 @@ if (!window.tournamentCache && localStorage.getItem('tournamentCache')) {
                         tournament_active: cacheData.isTournamentActive !== false
                     };
                 },
+                preloadAudioForNextMatch: function() {
+                    // Enhanced audio preloading for better performance
+                    try {
+                        const sessionData = cacheData.sessionData;
+                        if (sessionData && Array.isArray(sessionData)) {
+                            // Find next potential matches and preload their audio
+                            sessionData.slice(0, 4).forEach((song, index) => {
+                                if (song.audio_url && song.audio_url.includes('drive.google.com')) {
+                                    // Use link preload for Google Drive audio
+                                    const link = document.createElement('link');
+                                    link.rel = 'preload';
+                                    link.as = 'document';
+                                    link.href = song.audio_url;
+                                    link.setAttribute('data-preload-type', 'audio-next');
+                                    
+                                    // Add to head if not already there
+                                    const existing = document.querySelector(`link[href="${song.audio_url}"]`);
+                                    if (!existing) {
+                                        document.head.appendChild(link);
+                                        console.log('🎵 Preloaded audio for next match:', song.title);
+                                    }
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.warn('Audio preloading failed:', error);
+                    }
+                },
                 sessionData: cacheData.sessionData
             };
             console.log('🌐 Global cache accessor loaded:', window.tournamentCache.getCacheStats());

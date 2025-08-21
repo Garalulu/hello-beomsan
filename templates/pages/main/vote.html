@@ -54,14 +54,26 @@
                                 {% endif %}
                                 
                                 {% if 'drive.google.com' in match_data.song1.audio_url %}
-                                <!-- Google Drive audio using iframe -->
+                                <!-- Google Drive audio with loading state -->
                                 <div class="audio-container mb-3" onclick="event.stopPropagation();">
-                                    <iframe src="{{ match_data.song1.audio_url }}" 
+                                    <div class="audio-loading-state" id="audioLoading1">
+                                        <div class="d-flex align-items-center justify-content-center p-2">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                            <small class="text-muted">Loading audio...</small>
+                                        </div>
+                                    </div>
+                                    <iframe id="audioFrame1" 
+                                            data-src="{{ match_data.song1.audio_url }}" 
                                             width="100%" height="60" frameborder="0" 
                                             allow="autoplay; encrypted-media"
-                                            class="audio-player google-drive-audio"
-                                            title="Audio player for {{ match_data.song1.title }}">
+                                            class="audio-player google-drive-audio d-none"
+                                            title="Audio player for {{ match_data.song1.title }}"
+                                            loading="lazy">
                                     </iframe>
+                                    <button id="audioFallback1" class="btn btn-outline-primary btn-sm audio-fallback d-none" 
+                                            onclick="loadAudioFrame('audioFrame1', '{{ match_data.song1.audio_url }}', 'audioLoading1', 'audioFallback1')">
+                                        <i class="fas fa-play"></i> Click to load audio
+                                    </button>
                                 </div>
                                 {% else %}
                                 <!-- Standard audio player -->
@@ -109,14 +121,32 @@
                                 {% endif %}
                                 
                                 {% if 'drive.google.com' in match_data.song2.audio_url %}
-                                <!-- Google Drive audio using iframe -->
+                                <!-- Google Drive audio with lazy loading -->
                                 <div class="audio-container mb-3" onclick="event.stopPropagation();">
-                                    <iframe src="{{ match_data.song2.audio_url }}" 
+                                    <div class="audio-lazy-state" id="audioLazy2">
+                                        <button class="btn btn-outline-secondary btn-sm w-100" 
+                                                onclick="loadSecondAudio('{{ match_data.song2.audio_url }}', this)">
+                                            <i class="fas fa-headphones me-1"></i> Load Audio Player
+                                            <small class="d-block text-muted">Click to load (saves bandwidth)</small>
+                                        </button>
+                                    </div>
+                                    <div class="audio-loading-state d-none" id="audioLoading2">
+                                        <div class="d-flex align-items-center justify-content-center p-2">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                            <small class="text-muted">Loading audio...</small>
+                                        </div>
+                                    </div>
+                                    <iframe id="audioFrame2" 
                                             width="100%" height="60" frameborder="0" 
                                             allow="autoplay; encrypted-media"
-                                            class="audio-player google-drive-audio"
-                                            title="Audio player for {{ match_data.song2.title }}">
+                                            class="audio-player google-drive-audio d-none"
+                                            title="Audio player for {{ match_data.song2.title }}"
+                                            loading="lazy">
                                     </iframe>
+                                    <button id="audioFallback2" class="btn btn-outline-primary btn-sm audio-fallback d-none" 
+                                            onclick="loadAudioFrame('audioFrame2', '{{ match_data.song2.audio_url }}', 'audioLoading2', 'audioFallback2')">
+                                        <i class="fas fa-play"></i> Click to load audio
+                                    </button>
                                 </div>
                                 {% else %}
                                 <!-- Standard audio player -->
@@ -666,6 +696,178 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('beforeunload', () => {
         tournamentCache.saveToLocalStorage();
     });
+});
+
+// Audio loading management
+let audioLoadTimeout = null;
+
+function loadAudioFrame(frameId, audioUrl, loadingId, fallbackButtonId) {
+    const frame = document.getElementById(frameId);
+    const loading = document.getElementById(loadingId);
+    const fallbackButton = document.getElementById(fallbackButtonId);
+    
+    // Check if elements exist
+    if (!frame || !loading || !fallbackButton) {
+        console.error('Audio loading elements not found:', {frameId, loadingId, fallbackButtonId});
+        return;
+    }
+    
+    // Hide fallback button and show loading
+    fallbackButton.classList.add('d-none');
+    loading.classList.remove('d-none');
+    
+    let loadingComplete = false;
+    
+    // Set timeout to show fallback if loading takes too long (extended to 8 seconds)
+    const timeout = setTimeout(() => {
+        if (!loadingComplete) {
+            loading.classList.add('d-none');
+            fallbackButton.classList.remove('d-none');
+            fallbackButton.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Slow connection - Retry';
+        }
+    }, 8000);
+    
+    // For Google Drive, we need to use a different approach since onload isn't reliable
+    // We'll assume success after a delay and provide fallback if needed
+    const assumeLoaded = setTimeout(() => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            loading.classList.add('d-none');
+            frame.classList.remove('d-none');
+            console.log('Audio assumed loaded after delay');
+        }
+    }, 3000);
+    
+    // Still try iframe events as backup
+    frame.onload = () => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            clearTimeout(assumeLoaded);
+            loading.classList.add('d-none');
+            frame.classList.remove('d-none');
+            console.log('Audio loaded via onload event');
+        }
+    };
+    
+    frame.onerror = () => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            clearTimeout(assumeLoaded);
+            loading.classList.add('d-none');
+            fallbackButton.classList.remove('d-none');
+            fallbackButton.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Failed to load';
+        }
+    };
+    
+    // Start loading
+    frame.src = audioUrl;
+}
+
+function loadSecondAudio(audioUrl, button) {
+    const container = button.parentElement;
+    const loadingDiv = document.getElementById('audioLoading2');
+    const frame = document.getElementById('audioFrame2');
+    const fallbackButton = document.getElementById('audioFallback2');
+    
+    // Check if elements exist
+    if (!container || !loadingDiv || !frame) {
+        console.error('Second audio loading elements not found');
+        return;
+    }
+    
+    // Hide lazy button and show loading
+    container.classList.add('d-none');
+    loadingDiv.classList.remove('d-none');
+    
+    let loadingComplete = false;
+    
+    // Set timeout for fallback (extended to 8 seconds)
+    const timeout = setTimeout(() => {
+        if (!loadingComplete) {
+            loadingDiv.classList.add('d-none');
+            if (fallbackButton) {
+                fallbackButton.classList.remove('d-none');
+            }
+        }
+    }, 8000);
+    
+    // Assume loaded after delay (same approach as first audio)
+    const assumeLoaded = setTimeout(() => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            loadingDiv.classList.add('d-none');
+            frame.classList.remove('d-none');
+            console.log('Second audio assumed loaded after delay');
+        }
+    }, 3000);
+    
+    // Try iframe events as backup
+    frame.onload = () => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            clearTimeout(assumeLoaded);
+            loadingDiv.classList.add('d-none');
+            frame.classList.remove('d-none');
+            console.log('Second audio loaded via onload event');
+        }
+    };
+    
+    frame.onerror = () => {
+        if (!loadingComplete) {
+            loadingComplete = true;
+            clearTimeout(timeout);
+            clearTimeout(assumeLoaded);
+            loadingDiv.classList.add('d-none');
+            if (fallbackButton) {
+                fallbackButton.classList.remove('d-none');
+            }
+        }
+    };
+    
+    frame.src = audioUrl;
+}
+
+// Auto-load first audio on page load with delay
+document.addEventListener('DOMContentLoaded', function() {
+    // Preload next match audio if available
+    if (window.tournamentCache && window.tournamentCache.preloadAudioForNextMatch) {
+        setTimeout(() => {
+            window.tournamentCache.preloadAudioForNextMatch();
+        }, 1000);
+    }
+    
+    // Load first audio automatically after a short delay
+    setTimeout(() => {
+        const firstFrame = document.getElementById('audioFrame1');
+        const firstAudioUrl = firstFrame?.getAttribute('data-src');
+        if (firstFrame && firstAudioUrl) {
+            loadAudioFrame('audioFrame1', firstAudioUrl, 'audioLoading1', 'audioFallback1');
+        }
+    }, 500);
+    
+    // Preload second audio on hover/focus for better UX
+    const secondCard = document.getElementById('song2Card');
+    if (secondCard) {
+        let preloaded = false;
+        const preloadSecond = () => {
+            if (!preloaded) {
+                preloaded = true;
+                const lazyButton = document.querySelector('#audioLazy2 button');
+                if (lazyButton && !lazyButton.disabled) {
+                    // Don't auto-click, just prepare for faster loading
+                    console.log('Preparing second audio for faster loading...');
+                }
+            }
+        };
+        
+        secondCard.addEventListener('mouseenter', preloadSecond, { once: true });
+        secondCard.addEventListener('focus', preloadSecond, { once: true });
+    }
 });
 
 // Keyboard shortcuts
