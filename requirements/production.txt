@@ -1,0 +1,8 @@
+# Production dependencies
+-r base.txt
+
+# WSGI server for production
+gunicorn==23.0.0
+
+# Production-specific optimizations
+# Add production-specific packages here as needed

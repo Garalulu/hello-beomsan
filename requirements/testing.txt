@@ -1,0 +1,16 @@
+# Testing environment dependencies
+-r base.txt
+
+# Testing frameworks
+pytest>=7.4.0
+pytest-django>=4.5.2
+pytest-cov>=4.1.0
+pytest-mock>=3.10.0
+factory-boy>=3.3.0
+
+# Coverage reporting
+coverage>=7.0.0
+
+# Test utilities
+freezegun>=1.2.0  # For mocking time in tests
+responses>=0.23.0  # For mocking HTTP requests
