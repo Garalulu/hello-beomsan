@@ -306,44 +306,56 @@ def start_game(request):
             action = request.POST.get('action')
             
             try:
-                if action == 'continue' and request.user.is_authenticated:
-                    # Continue existing session
-                    session = VotingSession.objects.filter(
-                        user=request.user,
-                        status='ACTIVE'
-                    ).first()
-                    if session:
-                        return redirect('vote')
-                
-                # Start new session (abandon existing if any)
-                with transaction.atomic():
+                if action == 'continue':
+                    # Continue existing ACTIVE session only
                     if request.user.is_authenticated:
-                        # Mark old sessions as abandoned
-                        VotingSession.objects.filter(
-                            user=request.user,
-                            status='ACTIVE'
-                        ).update(status='ABANDONED')
-                        
-                        session = VotingSessionService.create_voting_session(user=request.user)
+                        user = request.user
+                        session_key = None
                     else:
-                        # Anonymous user
+                        user = None
+                        session_key = request.session.session_key
+                    
+                    session, is_existing = VotingSessionService.get_or_create_session(
+                        user=user,
+                        session_key=session_key,
+                        preference='active_only'
+                    )
+                    if session and is_existing:
+                        return redirect('/game/vote/?continue=1')  # Add parameter to indicate continuing session
+                    else:
+                        messages.error(request, "No active session found to continue.")
+                        return redirect('start_game')
+                
+                # Start new session - force create new (abandon existing ACTIVE)
+                try:
+                    if request.user.is_authenticated:
+                        user = request.user
+                        session_key = None
+                        logger.info(f"Starting new session for authenticated user: {user.username}")
+                    else:
+                        user = None
                         if not request.session.session_key:
                             request.session.create()
+                        session_key = request.session.session_key
+                        logger.info(f"Starting new session for anonymous user with session_key: {session_key}")
+                    
+                    session, is_existing = VotingSessionService.get_or_create_session(
+                        user=user,
+                        session_key=session_key,
+                        preference='create_new'
+                    )
+                    
+                    if session:
+                        logger.info(f"Successfully created session {session.id}, redirecting to vote?new=1")
+                        return redirect('/game/vote/?new=1')  # Add parameter to indicate new session
+                    else:
+                        logger.error("get_or_create_session returned None for create_new preference")
+                        messages.error(request, "Unable to start tournament. Please try again.")
+                        return redirect('home')
                         
-                        # Mark old sessions as abandoned
-                        VotingSession.objects.filter(
-                            session_key=request.session.session_key,
-                            status='ACTIVE'
-                        ).update(status='ABANDONED')
-                        
-                        session = VotingSessionService.create_voting_session(
-                            session_key=request.session.session_key
-                        )
-                
-                if session:
-                    return redirect('vote')
-                else:
-                    messages.error(request, "Unable to start tournament. Please try again.")
+                except Exception as session_error:
+                    logger.error(f"Error in session creation logic: {type(session_error).__name__}: {str(session_error)}")
+                    messages.error(request, f"Session creation failed: {str(session_error)}")
                     return redirect('home')
                     
             except Exception as e:
@@ -351,21 +363,25 @@ def start_game(request):
                 messages.error(request, "An error occurred while starting the tournament. Please try again.")
                 return redirect('home')
         
-        # GET request - Check for existing session
+        # GET request - Check for existing ACTIVE session only
         existing_session = None
         try:
             if request.user.is_authenticated:
-                existing_session = VotingSession.objects.filter(
-                    user=request.user,
-                    status='ACTIVE'
-                ).first()
+                user = request.user
+                session_key = None
             else:
+                user = None
                 session_key = request.session.session_key
-                if session_key:
-                    existing_session = VotingSession.objects.filter(
-                        session_key=session_key,
-                        status='ACTIVE'
-                    ).first()
+            
+            session, is_existing = VotingSessionService.get_or_create_session(
+                user=user,
+                session_key=session_key,
+                preference='active_only'
+            )
+            
+            if session and is_existing:
+                existing_session = session
+                
         except Exception as e:
             logger.warning(f"Error checking existing session: {e}")
             existing_session = None
@@ -385,11 +401,29 @@ def start_game(request):
 def vote(request):
     """Main voting interface"""
     try:
-        # Get or create session
-        session, is_existing = VotingSessionService.get_or_create_session(
-            user=request.user if request.user.is_authenticated else None,
-            session_key=request.session.session_key
-        )
+        # Check user intention based on URL parameters
+        is_new_session = request.GET.get('new') == '1'
+        is_continue_session = request.GET.get('continue') == '1'
+        
+        if is_new_session or is_continue_session:
+            # User coming from "start new session" or "continue session" - look for ACTIVE sessions only
+            session, is_existing = VotingSessionService.get_or_create_session(
+                user=request.user if request.user.is_authenticated else None,
+                session_key=request.session.session_key,
+                preference='active_only'  # Only look for ACTIVE sessions
+            )
+            if not session:
+                # No active session found, redirect back to start_game
+                action = "continue" if is_continue_session else "start new"
+                messages.error(request, f"No active session found to {action}. Please start a new tournament.")
+                return redirect('start_game')
+        else:
+            # Default behavior - show COMPLETED results or continue ACTIVE session
+            session, is_existing = VotingSessionService.get_or_create_session(
+                user=request.user if request.user.is_authenticated else None,
+                session_key=request.session.session_key,
+                preference='default'  # COMPLETED (show results) -> ACTIVE (continue) -> CREATE NEW
+            )
         
         if not session:
             messages.error(request, "Unable to access tournament session. Please try starting a new game.")

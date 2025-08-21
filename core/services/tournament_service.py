@@ -400,6 +400,7 @@ class VotingSessionService:
     def update_next_round(session: 'VotingSession'):
         """
         Update next round matches when current round is complete.
+        Winners are randomly shuffled before pairing for next round.
         """
         current_round_key = f'round_{session.current_round}'
         current_matches = session.bracket_data[current_round_key]
@@ -414,7 +415,12 @@ class VotingSessionService:
                 winners = [match['winner'] for match in current_matches if match['winner']]
                 next_round_matches = session.bracket_data[next_round_key]
                 
-                # Pair up winners for next round
+                # SHUFFLE WINNERS RANDOMLY before pairing them
+                # This creates unpredictable matchups instead of traditional bracket order
+                random.shuffle(winners)
+                logger.info(f"Shuffled {len(winners)} winners for round {session.current_round + 1}")
+                
+                # Pair up shuffled winners for next round
                 for i, match in enumerate(next_round_matches):
                     if i * 2 < len(winners):
                         match['song1'] = winners[i * 2]
@@ -461,10 +467,16 @@ class VotingSessionService:
         }
     
     @staticmethod
-    def get_or_create_session(user=None, session_key=None) -> Tuple[Optional['VotingSession'], bool]:
+    def get_or_create_session(user=None, session_key=None, preference='default') -> Tuple[Optional['VotingSession'], bool]:
         """
-        Get existing session (completed or active) or create new one.
-        Priority: COMPLETED (show results) -> ACTIVE (continue voting) -> CREATE NEW
+        Get existing session or create new one based on preference.
+        
+        Args:
+            preference (str): Session preference mode
+                - 'default': COMPLETED (show results) -> ACTIVE (continue) -> CREATE NEW
+                - 'active_only': Only look for ACTIVE sessions, ignore COMPLETED
+                - 'create_new': Force create new session (abandon existing ACTIVE)
+                
         Returns (session, is_existing) or (None, False) if error.
         """
         from apps.tournament.models import VotingSession
@@ -472,6 +484,56 @@ class VotingSessionService:
         try:
             existing_session = None
             
+            # Handle create_new preference - abandon existing active sessions first
+            if preference == 'create_new':
+                try:
+                    if user:
+                        VotingSession.objects.filter(
+                            user=user,
+                            status='ACTIVE'
+                        ).update(status='ABANDONED')
+                    elif session_key:
+                        VotingSession.objects.filter(
+                            session_key=session_key,
+                            status='ACTIVE'
+                        ).update(status='ABANDONED')
+                    logger.info(f"Abandoned existing ACTIVE sessions for preference: {preference}")
+                except Exception as e:
+                    logger.warning(f"Error abandoning existing sessions: {e}")
+                
+                # Force create new session
+                new_session = VotingSessionService.create_voting_session(user, session_key)
+                if new_session:
+                    logger.info(f"Created new session {new_session.id} (forced)")
+                    return new_session, False
+                else:
+                    logger.error("Failed to create new voting session")
+                    return None, False
+            
+            # Handle active_only preference - only look for ACTIVE sessions
+            if preference == 'active_only':
+                try:
+                    if user:
+                        existing_session = VotingSession.objects.filter(
+                            user=user,
+                            status='ACTIVE'
+                        ).first()
+                    elif session_key:
+                        existing_session = VotingSession.objects.filter(
+                            session_key=session_key,
+                            status='ACTIVE'
+                        ).first()
+                except Exception as e:
+                    logger.warning(f"Error querying for ACTIVE sessions: {e}")
+                
+                if existing_session:
+                    logger.info(f"Found existing ACTIVE session {existing_session.id}")
+                    return existing_session, True
+                else:
+                    logger.info("No ACTIVE session found for active_only preference")
+                    return None, False
+            
+            # Handle default preference - check COMPLETED first, then ACTIVE
             if user:
                 try:
                     # First check for COMPLETED sessions (to show results)
