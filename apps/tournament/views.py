@@ -397,13 +397,14 @@ def vote(request):
         
         # Check if session is completed
         if session.status == 'COMPLETED':
-            # Get the winner
+            # Get the winner from the final round (highest round number)
             try:
                 final_match = Match.objects.filter(
-                    session=session,
-                    round_number=1  # Final round
-                ).first()
+                    session=session
+                ).order_by('-round_number').first()  # Get match from highest round (final)
                 winner_song = final_match.winner if final_match else None
+                
+                logger.info(f"Tournament completed! Winner: {winner_song.title if winner_song else 'Unknown'}")
             except Exception as e:
                 logger.warning(f"Error getting tournament winner: {e}")
                 winner_song = None

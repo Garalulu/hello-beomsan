@@ -463,39 +463,58 @@ class VotingSessionService:
     @staticmethod
     def get_or_create_session(user=None, session_key=None) -> Tuple[Optional['VotingSession'], bool]:
         """
-        Get existing active session or create new one.
+        Get existing session (completed or active) or create new one.
+        Priority: COMPLETED (show results) -> ACTIVE (continue voting) -> CREATE NEW
         Returns (session, is_existing) or (None, False) if error.
         """
         from apps.tournament.models import VotingSession
         
         try:
-            # Try to find existing active session
             existing_session = None
             
             if user:
                 try:
+                    # First check for COMPLETED sessions (to show results)
                     existing_session = VotingSession.objects.filter(
                         user=user,
-                        status='ACTIVE'
-                    ).first()
+                        status='COMPLETED'
+                    ).order_by('-updated_at').first()
+                    
+                    if not existing_session:
+                        # Then check for ACTIVE sessions (to continue voting)
+                        existing_session = VotingSession.objects.filter(
+                            user=user,
+                            status='ACTIVE'
+                        ).first()
+                        
                 except Exception as e:
                     logger.warning(f"Error querying user sessions: {e}")
             elif session_key:
                 try:
+                    # First check for COMPLETED sessions (to show results)
                     existing_session = VotingSession.objects.filter(
                         session_key=session_key,
-                        status='ACTIVE'
-                    ).first()
+                        status='COMPLETED'
+                    ).order_by('-updated_at').first()
+                    
+                    if not existing_session:
+                        # Then check for ACTIVE sessions (to continue voting)
+                        existing_session = VotingSession.objects.filter(
+                            session_key=session_key,
+                            status='ACTIVE'
+                        ).first()
+                        
                 except Exception as e:
                     logger.warning(f"Error querying anonymous sessions: {e}")
             
             if existing_session:
-                logger.info(f"Found existing session {existing_session.id}")
+                logger.info(f"Found existing {existing_session.status} session {existing_session.id}")
                 return existing_session, True  # existing=True
             else:
-                # Create new session
+                # Create new session only if no existing session found
                 new_session = VotingSessionService.create_voting_session(user, session_key)
                 if new_session:
+                    logger.info(f"Created new session {new_session.id}")
                     return new_session, False  # existing=False
                 else:
                     logger.error("Failed to create new voting session")
