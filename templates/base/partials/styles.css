@@ -137,6 +137,18 @@ body {
     border-color: var(--bs-link-color);
 }
 
+[data-theme="dark"] .btn-primary {
+    background-color: var(--bs-link-color);
+    border-color: var(--bs-link-color);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    background-color: var(--bs-link-hover-color);
+    border-color: var(--bs-link-hover-color);
+    color: #ffffff;
+}
+
 [data-theme="dark"] .btn-outline-secondary {
     border-color: var(--button-outline-border);
     color: var(--bs-text-muted);

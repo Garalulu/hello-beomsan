@@ -223,7 +223,8 @@ def vote(request):
                 messages.error(request, f"No active session found to {action}. Please start a new tournament.")
                 return redirect('start_game')
         else:
-            # Default behavior - show COMPLETED results or continue ACTIVE session
+            # Default behavior - only look for ACTIVE sessions, redirect to start_game if none exist
+            # This prevents showing old COMPLETED sessions when users access /game/vote/ directly
             if request.user.is_authenticated:
                 user = request.user
                 session_key = None
@@ -238,7 +239,7 @@ def vote(request):
             session, is_existing = VotingSessionService.get_or_create_session(
                 user=user,
                 session_key=session_key,
-                preference='default'  # COMPLETED (show results) -> ACTIVE (continue) -> CREATE NEW
+                preference='active_only'  # Only look for ACTIVE sessions when no specific intent is given
             )
         
         if not session:
