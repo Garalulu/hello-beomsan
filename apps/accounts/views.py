@@ -29,6 +29,8 @@ def login_view(request):
         # Store state in session for security
         try:
             request.session['oauth_state'] = state
+            request.session.save()  # Explicitly save session
+            logger.info(f"Stored OAuth state in session: {state[:8]}...")
         except Exception as e:
             logger.error(f"Error storing OAuth state in session: {e}")
             messages.error(request, "Unable to initiate secure login.")
@@ -73,13 +75,16 @@ def oauth_callback(request):
         # Verify state to prevent CSRF attacks
         try:
             stored_state = request.session.get('oauth_state')
+            logger.info(f"Retrieved OAuth state from session: {stored_state[:8] if stored_state else 'None'}...")
+            logger.info(f"Received state parameter: {state[:8]}...")
         except Exception as e:
             logger.error(f"Error accessing session for OAuth state: {e}")
             messages.error(request, "Session error during login. Please try again.")
             return redirect('home')
         
         if not stored_state:
-            logger.error("No OAuth state found in session")
+            logger.error(f"No OAuth state found in session. Session keys: {list(request.session.keys())}")
+            logger.error(f"Session ID: {request.session.session_key}")
             messages.error(request, "Login session expired. Please try again.")
             return redirect('home')
         

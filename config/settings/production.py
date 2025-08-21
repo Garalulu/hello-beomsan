@@ -34,8 +34,17 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Strict'
-CSRF_COOKIE_SAMESITE = 'Strict'
+# OAuth-compatible SameSite settings
+SESSION_COOKIE_SAMESITE = 'Lax'  # Allow cross-site requests for OAuth redirects
+CSRF_COOKIE_SAMESITE = 'Lax'     # Allow CSRF token in OAuth flows
+# Session configuration for OAuth and anonymous users
+SESSION_COOKIE_AGE = 1209600      # 2 weeks  
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_SAVE_EVERY_REQUEST = True  # Ensure session is saved for OAuth flows and voting
+# Additional session settings for anonymous user stability
+SESSION_COOKIE_NAME = 'sessionid'  # Explicit session cookie name
+SESSION_COOKIE_DOMAIN = None       # Use default domain
+SESSION_COOKIE_PATH = '/'          # Available on entire site
 
 # Content Security and Headers
 SECURE_CONTENT_TYPE_NOSNIFF = True

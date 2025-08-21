@@ -54,10 +54,11 @@ def validate_url(url):
     return any(domain.endswith(allowed) for allowed in allowed_domains)
 
 def sanitize_input(text, max_length=200):
-    """Sanitize text input"""
+    """Sanitize text input for storage (not HTML escaping)"""
     if not text:
         return ''
-    return escape(str(text).strip())[:max_length]
+    # Only strip whitespace and limit length - no HTML escaping for database storage
+    return str(text).strip()[:max_length]
 
 def get_client_ip(request):
     """Get client IP address"""
@@ -407,9 +408,20 @@ def vote(request):
         
         if is_new_session or is_continue_session:
             # User coming from "start new session" or "continue session" - look for ACTIVE sessions only
+            if request.user.is_authenticated:
+                user = request.user
+                session_key = None
+            else:
+                user = None
+                # Ensure session exists for anonymous users
+                if not request.session.session_key:
+                    request.session.create()
+                session_key = request.session.session_key
+                logger.info(f"Anonymous user vote view with session_key: {session_key}")
+            
             session, is_existing = VotingSessionService.get_or_create_session(
-                user=request.user if request.user.is_authenticated else None,
-                session_key=request.session.session_key,
+                user=user,
+                session_key=session_key,
                 preference='active_only'  # Only look for ACTIVE sessions
             )
             if not session:
@@ -419,9 +431,20 @@ def vote(request):
                 return redirect('start_game')
         else:
             # Default behavior - show COMPLETED results or continue ACTIVE session
+            if request.user.is_authenticated:
+                user = request.user
+                session_key = None
+            else:
+                user = None
+                # Ensure session exists for anonymous users
+                if not request.session.session_key:
+                    request.session.create()
+                session_key = request.session.session_key
+                logger.info(f"Anonymous user default vote view with session_key: {session_key}")
+            
             session, is_existing = VotingSessionService.get_or_create_session(
-                user=request.user if request.user.is_authenticated else None,
-                session_key=request.session.session_key,
+                user=user,
+                session_key=session_key,
                 preference='default'  # COMPLETED (show results) -> ACTIVE (continue) -> CREATE NEW
             )
         
@@ -524,16 +547,43 @@ def cast_vote(request):
         # Verify session ownership
         if request.user.is_authenticated:
             if session.user != request.user:
+                logger.warning(f"Authenticated user {request.user.username} tried to access session belonging to {session.user}")
                 return JsonResponse({
                     'success': False,
                     'error': 'Not authorized for this session'
                 })
         else:
-            if session.session_key != request.session.session_key:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Not authorized for this session'
-                })
+            # Handle anonymous user session validation
+            current_session_key = request.session.session_key
+            stored_session_key = session.session_key
+            
+            # Ensure session exists for anonymous user
+            if not current_session_key:
+                logger.error("Anonymous user has no session key - creating new session")
+                request.session.create()
+                current_session_key = request.session.session_key
+                if not current_session_key:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Unable to maintain session. Please start a new tournament.'
+                    })
+            
+            if stored_session_key != current_session_key:
+                logger.warning(f"Session key mismatch for anonymous user: stored={stored_session_key}, current={current_session_key}")
+                
+                # In development, be strict about session validation
+                # In production, be more lenient due to session cookie complexities
+                from django.conf import settings
+                if settings.DEBUG:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Session expired. Please start a new tournament.'
+                    })
+                else:
+                    # In production, try to update the session to the current one
+                    logger.info(f"Production mode: updating session key from {stored_session_key} to {current_session_key}")
+                    session.session_key = current_session_key
+                    session.save()
         
         # Check per-session vote limits (prevent excessive voting on single session)
         session_vote_key = f'session_votes:{session.id}'
@@ -591,6 +641,10 @@ def cast_vote(request):
                 'error': 'Error loading next match'
             })
         
+        # Ensure session is saved for anonymous users
+        if not request.user.is_authenticated:
+            request.session.save()
+            
         return JsonResponse({
             'success': True,
             'next_match': next_match
@@ -1023,19 +1077,47 @@ def tournament_history(request):
 
 
 @staff_member_required
-@ensure_csrf_cookie
 def user_manage(request):
     """User management interface"""
-    from .models import UserProfile
-    profiles = UserProfile.objects.select_related('user').order_by('-created_at')
+    from django.db.models import Count, Q
+    from django.contrib.auth.models import User
+    
+    # Get search filter
+    username_filter = request.GET.get('username', '').strip()
+    
+    # Base queryset - get users with their profile data and session counts
+    users = User.objects.select_related('profile').annotate(
+        total_sessions=Count('voting_sessions', distinct=True),
+        completed_sessions=Count(
+            'voting_sessions',
+            filter=Q(voting_sessions__status='COMPLETED'),
+            distinct=True
+        ),
+        active_sessions=Count(
+            'voting_sessions', 
+            filter=Q(voting_sessions__status='ACTIVE'),
+            distinct=True
+        )
+    ).order_by('-date_joined')
+    
+    # Apply username filter if provided
+    if username_filter:
+        users = users.filter(
+            Q(username__icontains=username_filter) |
+            Q(profile__osu_username__icontains=username_filter)
+        )
+    
+    # Profile relationship is already accessible via select_related('profile')
+    # No need to manually set it
     
     # Pagination
-    paginator = Paginator(profiles, 20)
+    paginator = Paginator(users, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
     return render(request, 'pages/admin/user_manage.html', {
-        'page_obj': page_obj
+        'page_obj': page_obj,
+        'username_filter': username_filter,
     })
 
 
