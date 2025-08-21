@@ -25,4 +25,4 @@ proxy:
   db: "db.sqlite3"
 
 # Execute Django application with gunicorn
-exec: "sh -c 'export DJANGO_SETTINGS_MODULE=config.settings.production && python manage.py collectstatic --noinput && python manage.py migrate --check || python manage.py migrate && gunicorn --bind 0.0.0.0:8000 config.wsgi:application'"
+exec: "sh -c 'export DJANGO_SETTINGS_MODULE=config.settings.production && echo \"Starting Django...\" && gunicorn --bind 0.0.0.0:8000 config.wsgi:application'"

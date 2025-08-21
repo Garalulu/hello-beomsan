@@ -10,9 +10,9 @@ console_command = '/code/manage.py shell --settings=config.settings.production'
 [build]
   dockerfile = "Dockerfile"
 
-# LiteFS handles migrations in litefs.yml exec section
-# [deploy]
-#   release_command = '/bin/sh -c "python manage.py collectstatic --noinput"'
+# Release command runs migrations during deployment (not on every startup)
+[deploy]
+  release_command = 'python manage.py migrate'
 
 [env]
   PORT = '8000'
@@ -20,21 +20,18 @@ console_command = '/code/manage.py shell --settings=config.settings.production'
   DJANGO_SETTINGS_MODULE = 'config.settings.production'
 
 [http_service]
-  internal_port = 8000
+  internal_port = 8080
   force_https = true
   auto_stop_machines = 'suspend'  # Changed from 'stop' to 'suspend' for faster wake-up
   auto_start_machines = true
   min_machines_running = 1  # Keep at least 1 machine running to reduce cold starts
   processes = ['app']
   
-  # Health checks to keep app warm
-  [[http_service.checks]]
-    type = "http"
-    method = "get"
-    path = "/game/health/"
-    interval = "15s"
-    timeout = "5s"
-    grace_period = "10s"
+  # Health checks disabled to avoid ALLOWED_HOSTS issues
+  # [[http_service.checks]]
+  #   type = "http"
+  #   method = "get"  
+  #   path = "/game/health/"
 
 [[vm]]
   memory = '1gb'

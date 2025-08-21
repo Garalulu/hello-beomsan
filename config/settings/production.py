@@ -10,7 +10,7 @@ DEBUG = False
 # Production hosts
 APP_NAME = os.environ.get("FLY_APP_NAME")
 if APP_NAME:
-    ALLOWED_HOSTS = [f"{APP_NAME}.fly.dev", '127.0.0.1', 'localhost']
+    ALLOWED_HOSTS = [f"{APP_NAME}.fly.dev", f"{APP_NAME}.internal", os.environ.get("FLY_PRIVATE_IP"), '127.0.0.1', 'localhost']
 else:
     ALLOWED_HOSTS = []
 

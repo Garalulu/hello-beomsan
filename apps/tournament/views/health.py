@@ -10,7 +10,7 @@ import time
 
 @csrf_exempt
 @require_GET
-@cache_page(30)  # Cache for 30 seconds to reduce database load
+
 def health_check(request):
     """
     Simple health check endpoint to keep Fly.io machines warm
