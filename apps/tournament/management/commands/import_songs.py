@@ -1,7 +1,7 @@
 import os
 import csv
 from django.core.management.base import BaseCommand, CommandError
-from tournament.models import Song
+from apps.tournament.models import Song
 
 
 class Command(BaseCommand):

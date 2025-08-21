@@ -13,7 +13,7 @@ class Command(BaseCommand):
         for username in admin_usernames:
             try:
                 # Try to find user by osu username first (in profile)
-                from tournament.models import UserProfile
+                from apps.tournament.models import UserProfile
                 try:
                     profile = UserProfile.objects.get(osu_username=username)
                     user = profile.user

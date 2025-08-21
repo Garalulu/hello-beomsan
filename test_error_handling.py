@@ -17,9 +17,9 @@ django.setup()
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 
-from tournament.models import Song, VotingSession
-from tournament.services import VotingSessionService
-from accounts.services import OsuOAuthService
+from apps.tournament.models import Song, VotingSession
+from core.services.tournament_service import VotingSessionService
+from core.services.accounts_service import OsuOAuthService
 
 @pytest.mark.django_db
 def test_empty_database_scenario():

@@ -157,7 +157,7 @@ python manage.py createsuperuser
 ### Custom Management Commands
 ```bash
 # Create voting session programmatically
-python manage.py shell -c "from tournament.services import VotingSessionService; VotingSessionService.create_voting_session()"
+python manage.py shell -c "from core.services.tournament_service import VotingSessionService; VotingSessionService.create_voting_session()"
 
 # Import songs from CSV (if implemented)
 python manage.py import_songs songs.csv --audio-dir /path/to/audio --image-dir /path/to/images

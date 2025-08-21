@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.html import escape
 from .models import Song, VotingSession, Match, Vote
-from .services import VotingSessionService
+from core.services.tournament_service import VotingSessionService
 import json
 import logging
 import csv

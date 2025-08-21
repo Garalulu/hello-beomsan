@@ -15,8 +15,8 @@ import json
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hello_beomsan.settings')
 django.setup()
 
-from tournament.models import Song, VotingSession, Match, Vote, UserProfile
-from tournament.services import VotingSessionService
+from apps.tournament.models import Song, VotingSession, Match, Vote, UserProfile
+from core.services.tournament_service import VotingSessionService
 
 
 @pytest.mark.django_db

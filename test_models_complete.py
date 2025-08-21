@@ -16,7 +16,7 @@ from django.db import transaction
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hello_beomsan.settings')
 django.setup()
 
-from tournament.models import Song, VotingSession, Match, Vote, UserProfile
+from apps.tournament.models import Song, VotingSession, Match, Vote, UserProfile
 
 
 @pytest.mark.django_db

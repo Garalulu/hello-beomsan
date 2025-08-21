@@ -4,8 +4,8 @@ from django.urls import reverse
 from unittest.mock import patch, Mock
 import json
 
-from tournament.models import UserProfile
-from .services import OsuOAuthService
+from apps.tournament.models import UserProfile
+from core.services.accounts_service import OsuOAuthService
 
 
 class OsuOAuthServiceTest(TestCase):
@@ -338,7 +338,7 @@ class IntegrationTest(TestCase):
     
     def test_authenticated_tournament_flow(self):
         """Test tournament flow with authenticated user"""
-        from tournament.models import Song
+        from apps.tournament.models import Song
         
         # Create test songs
         for i in range(3):
@@ -362,7 +362,7 @@ class IntegrationTest(TestCase):
         self.assertEqual(response.status_code, 302)
         
         # Check that session was created for the user
-        from tournament.models import VotingSession
+        from apps.tournament.models import VotingSession
         session = VotingSession.objects.filter(user=self.user).first()
         self.assertIsNotNone(session)
         self.assertEqual(session.user, self.user)
@@ -380,8 +380,8 @@ class IntegrationTest(TestCase):
     
     def test_session_persistence_for_authenticated_users(self):
         """Test that authenticated users can resume sessions"""
-        from tournament.models import Song, VotingSession
-        from tournament.services import VotingSessionService
+        from apps.tournament.models import Song, VotingSession
+        from core.services.tournament_service import VotingSessionService
         
         # Create test songs
         for i in range(3):

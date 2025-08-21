@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.conf import settings
-from .services import OsuOAuthService
+from core.services.accounts_service import OsuOAuthService
 import logging
 
 logger = logging.getLogger(__name__)
