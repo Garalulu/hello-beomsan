@@ -62,4 +62,4 @@ CSRF_COOKIE_SECURE = False
 # Test media storage
 MEDIA_ROOT = BASE_DIR / 'test_media'
 
-print("🧪 Testing settings loaded")
+print("Testing settings loaded")

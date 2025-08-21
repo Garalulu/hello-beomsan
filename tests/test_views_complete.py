@@ -12,7 +12,7 @@ from django.contrib.sessions.backends.db import SessionStore
 import json
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hello_beomsan.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.testing')
 django.setup()
 
 from apps.tournament.models import Song, VotingSession, Match, Vote, UserProfile

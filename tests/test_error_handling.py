@@ -11,7 +11,7 @@ import pytest
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hello_beomsan.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.testing')
 django.setup()
 
 from django.test import TestCase, Client

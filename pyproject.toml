@@ -73,13 +73,14 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 known_django = "django"
-known_first_party = "hello_beomsan,tournament,accounts"
+known_first_party = "config,apps,core"
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DJANGO", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "hello_beomsan.settings"
+DJANGO_SETTINGS_MODULE = "config.settings.testing"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
-addopts = "--cov=. --cov-report=html --cov-report=term-missing"
+testpaths = ["tests", "apps"]
+addopts = "--cov=. --cov-report=html --cov-report=term-missing --reuse-db"
 
 [tool.mypy]
 python_version = "3.12"

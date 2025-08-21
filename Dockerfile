@@ -20,13 +20,14 @@ COPY --from=flyio/litefs:0.5 /usr/local/bin/litefs /usr/local/bin/litefs
 WORKDIR /code
 
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements/ ./requirements/
+RUN pip install --no-cache-dir -r requirements/production.txt
 
 # Copy project
 COPY . .
 
-# Collect static files
+# Collect static files with production settings
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
 RUN python manage.py collectstatic --noinput
 
 # Expose port

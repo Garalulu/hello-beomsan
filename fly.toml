@@ -5,7 +5,7 @@
 
 app = 'hello-beomsan'
 primary_region = 'nrt'
-console_command = '/code/manage.py shell'
+console_command = '/code/manage.py shell --settings=config.settings.production'
 
 [build]
   dockerfile = "Dockerfile"
@@ -17,6 +17,7 @@ console_command = '/code/manage.py shell'
 [env]
   PORT = '8000'
   PRIMARY_REGION = 'nrt'
+  DJANGO_SETTINGS_MODULE = 'config.settings.production'
 
 [http_service]
   internal_port = 8080
