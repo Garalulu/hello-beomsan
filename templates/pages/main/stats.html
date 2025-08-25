@@ -20,11 +20,14 @@
         <div class="alert alert-info">
             <h6><i class="fas fa-info-circle"></i> Statistics Explained</h6>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <strong>Win Rate:</strong> Percentage of tournaments where this song was the final champion
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <strong>Pick Rate:</strong> Percentage of individual matches won by this song
+                </div>
+                <div class="col-md-4">
+                    <strong>Overall Ranking:</strong> Tournament wins first, then round performance weighted
                 </div>
             </div>
         </div>
@@ -38,15 +41,18 @@
             <div class="card-body">
                 <h5>Sort by:</h5>
                 <div class="btn-group" role="group">
-                    <a href="?sort=win_rate" class="btn {% if sort_by == 'win_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        <i class="fas fa-percentage"></i> Win Rate
+                    <a href="?sort=fibonacci" class="btn {% if sort_by == 'fibonacci' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        <i class="fas fa-star"></i> Overall Ranking
                     </a>
                     <a href="?sort=pick_rate" class="btn {% if sort_by == 'pick_rate' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        <i class="fas fa-chart-line"></i> Pick Rate
+                        <i class="fas fa-percentage"></i> Pick Rate
                     </a>
-                    <a href="?sort=tournaments" class="btn {% if sort_by == 'tournaments' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                        <i class="fas fa-trophy"></i> Tournament Wins
-                    </a>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Overall Ranking:</strong> Tournament wins first, then round performance weighted by fibonacci
+                    </small>
                 </div>
             </div>
         </div>
@@ -84,6 +90,10 @@
                     <div class="col-md-6">
                         <div class="row text-center">
                             <div class="col-3">
+                                <div class="fw-bold text-warning">{{ song.tournament_wins }}</div>
+                                <small class="text-muted" title="Number of tournaments won">Tournaments</small>
+                            </div>
+                            <div class="col-3">
                                 <div class="fw-bold text-success">{{ song.win_rate|floatformat:1 }}%</div>
                                 <small class="text-muted" title="% of tournaments won as final champion">Win Rate</small>
                             </div>
@@ -92,14 +102,11 @@
                                 <small class="text-muted" title="% of individual matches won">Pick Rate</small>
                             </div>
                             <div class="col-3">
-                                <div class="fw-bold text-warning">{{ song.tournament_wins }}</div>
-                                <small class="text-muted" title="Number of tournaments won">Tournaments</small>
-                            </div>
-                            <div class="col-3">
                                 <div class="fw-bold text-secondary">{{ song.total_picks }}</div>
                                 <small class="text-muted" title="Total matches played">Matches</small>
                             </div>
                         </div>
+                        
                         
                         <!-- Win Rate Progress Bar -->
                         <div class="mt-2">

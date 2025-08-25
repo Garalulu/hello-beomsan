@@ -16,10 +16,18 @@ logger = logging.getLogger(__name__)
 
 @ensure_csrf_cookie
 def song_stats(request):
-    """Display song statistics"""
+    """Display song statistics with fibonacci-weighted ranking"""
     try:
-        # Get all songs with statistics
-        songs = Song.objects.all().order_by('-total_wins')
+        # Get sort parameter from request
+        sort_by = request.GET.get('sort', 'fibonacci')  # Default to fibonacci ranking
+        
+        # Get all songs with different sorting options
+        if sort_by == 'pick_rate':
+            # Sort by pick rate (% of individual matches won)
+            songs = Song.objects.with_calculated_rates().order_by('-calculated_pick_rate', '-total_wins')
+        else:  # Default: fibonacci ranking (tournament wins first, then fibonacci score)
+            # Overall ranking: tournament wins first, then fibonacci score as tiebreaker
+            songs = Song.objects.with_fibonacci_ranking().order_by('-tournament_wins', '-fibonacci_score')
         
         # Pagination
         paginator = Paginator(songs, 20)
@@ -43,7 +51,8 @@ def song_stats(request):
                 'total_songs': total_songs,
                 'total_matches': total_matches,
                 'total_tournaments': total_tournaments
-            }
+            },
+            'sort_by': sort_by
         })
         
     except Exception as e:

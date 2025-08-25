@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models import F, Case, When, FloatField, Q
+from django.db.models import F, Case, When, FloatField, Q, Sum
 from django.utils.functional import cached_property
 import uuid
 
@@ -30,6 +30,23 @@ class SongManager(models.Manager):
             song._cached_completed_tournaments = completed_count
         
         return queryset
+    
+    def with_fibonacci_ranking(self):
+        """Annotate songs with fibonacci-weighted score (without ordering - let view handle that)"""
+        return self.annotate(
+            fibonacci_score=Sum(
+                Case(
+                    When(won_matches__round_number=1, then=1),
+                    When(won_matches__round_number=2, then=2), 
+                    When(won_matches__round_number=3, then=3),
+                    When(won_matches__round_number=4, then=5),
+                    When(won_matches__round_number=5, then=8),
+                    When(won_matches__round_number=6, then=13),
+                    When(won_matches__round_number=7, then=21),
+                    default=0
+                )
+            )
+        )
 
 
 class Song(models.Model):
@@ -81,6 +98,17 @@ class Song(models.Model):
         if self.total_picks == 0:
             return 0
         return (self.total_wins / self.total_picks) * 100
+    
+    def calculate_fibonacci_score(self):
+        """Calculate fibonacci-weighted round performance score"""
+        fibonacci_weights = {1: 1, 2: 2, 3: 3, 4: 5, 5: 8, 6: 13, 7: 21}
+        score = 0
+        
+        for round_num, weight in fibonacci_weights.items():
+            wins_in_round = self.won_matches.filter(round_number=round_num).count()
+            score += wins_in_round * weight
+        
+        return score
 
 
 class VotingSession(models.Model):

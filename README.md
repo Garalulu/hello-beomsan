@@ -268,6 +268,14 @@ hello-beomsan/
 
 ## Recent Improvements
 
+### 📊 Fibonacci Ranking System
+- **Intelligent Song Ranking**: Implemented two-tier fibonacci-weighted ranking system for song statistics
+- **Tournament Winners First**: Champions always rank above non-winners, maintaining competitive integrity
+- **Round Performance Weighted**: Later rounds worth exponentially more (Finals=13x, Semis=8x, Quarters=5x, etc.)
+- **Clean Statistics UI**: Streamlined sort options to "Overall Ranking" and "Pick Rate" for better user experience
+- **Database Optimized**: Added custom indexes for efficient fibonacci score calculations
+- **Backward Compatible**: Works with all existing tournament data and match history
+
 ### 🎯 Session Management & User Experience
 - **Fixed Anonymous User Voting**: Resolved session persistence issues preventing anonymous users from completing tournaments
 - **Enhanced Session Flow**: Improved start/continue session logic with proper COMPLETED vs ACTIVE session handling
@@ -279,6 +287,7 @@ hello-beomsan/
 - **Centered Statistics**: Improved tournament duration display with better typography and centering
 - **Fallback Design**: Beautiful gradient placeholder for songs without background images
 - **Input Sanitization**: Fixed HTML entity conversion issues (&#39; to ') in song name editing
+- **Static File Organization**: Moved CSS/JS from templates to proper static directory structure
 
 ### 🛠️ Admin & Management
 - **User Management**: Fixed data display and search functionality in admin user management interface

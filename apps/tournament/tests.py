@@ -1,4 +1,3 @@
-import pytest
 from django.test import TestCase, Client
 from django.contrib.auth.models import User, AnonymousUser
 from django.urls import reverse

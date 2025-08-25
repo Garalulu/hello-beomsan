@@ -30,9 +30,8 @@
           crossorigin="anonymous">
     
     <!-- Custom Styles -->
-    <style>
-        {% include 'base/partials/styles.css' %}
-    </style>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
     
     {% block extra_css %}
     {% endblock %}
@@ -81,11 +80,8 @@
             integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" 
             crossorigin="anonymous" defer></script>
     
-    <!-- Tournament Cache Script - defer for better performance -->
-    <script defer>
-        // Inline critical cache initialization to avoid extra requests
-        {% include 'base/partials/tournament_cache.js' %}
-    </script>
+    <!-- Tournament Cache Script -->
+    <script defer src="{% static 'js/tournament_cache.js' %}"></script>
     
     {% block extra_js %}
     {% endblock %}
